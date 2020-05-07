@@ -2,3 +2,19 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+
+@import url("https://fonts.googleapis.com/css?family=Source+Sans+Pro");
+
+body {
+  /* Box-model */
+  @apply m-0;
+  /* Typography */
+  font-family: "Source Sans Pro";
+}
+
+html {
+  /* Box-model */
+  @apply h-full w-full;
+  /* Misc */
+  @apply overflow-x-hidden;
+}

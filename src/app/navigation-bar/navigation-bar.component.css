@@ -1,0 +1,36 @@
+:host {
+  --box-shadow-opacity: 0;
+}
+
+#nav-bar {
+  /* Positioning  */
+  @apply fixed top-0 z-10;
+  /* Box-model */
+  @apply flex items-center p-4 w-full;
+  /* Typography */
+  @apply text-base;
+  /* Visual */
+  @apply bg-white;
+  /* Misc */
+  box-shadow: 0 5px 10px rgba(235, 235, 235, var(--box-shadow-opacity));
+}
+
+.app-name {
+  /* Box-model */
+  @apply mx-4;
+  /* Typography */
+  @apply font-bold text-3xl;
+}
+
+.nav-link {
+  /* Box-model */
+  @apply align-middle mx-4 w-auto;
+  /* Typography */
+  @apply no-underline text-gray-500 tracking-widest uppercase;
+  /* Transitions */
+  @apply duration-300 ease-in-out transition-opacity;
+}
+
+.nav-link:hover {
+  @apply opacity-50;
+}

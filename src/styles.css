@@ -5,9 +5,14 @@
 
 @import url("https://fonts.googleapis.com/css?family=Source+Sans+Pro");
 
+:root {
+  --nav-bar-height: 80px;
+}
+
 body {
   /* Box-model */
   @apply m-0;
+  padding-top: var(--nav-bar-height);
   /* Typography */
   font-family: "Source Sans Pro";
 }

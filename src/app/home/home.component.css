@@ -1,3 +1,32 @@
 #home {
-  @apply h-full p-16 w-full;
+  @apply h-full px-12 w-full;
+}
+
+h2 {
+  @apply mx-4;
+}
+
+section {
+  @apply p-12;
+}
+
+.section__header {
+  /* Box-model */
+  @apply flex justify-between w-full;
+  /* Typography */
+  @apply tracking-wide;
+}
+
+.section__header__scope {
+  /* Box-model */
+  @apply flex inline-flex m-4 px-8;
+  /* Typography */
+  @apply text-gray-400;
+}
+
+.section__header__title {
+  /* Box-model */
+  @apply m-4 px-8;
+  /* Typography */
+  @apply text-gray-500 text-xl uppercase;
 }

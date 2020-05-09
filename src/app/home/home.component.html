@@ -1,23 +1,46 @@
 <div id="home">
+
+  <!-- Trending -->
   <section>
     <div class="section__header">
       <h1 class="section__header__title">
         Trending
       </h1>
       <span class="section__header__scope">
-        <h2>International</h2>
+        <h2 class="mr-2">
+          International
+        </h2>
         ⦁
-        <h2>Canada</h2>
+        <h2 class="mx-2">
+          Canada
+        </h2>
         ⦁
-        <h2>My Network</h2>
+        <h2 class="ml-2">
+          My Network
+        </h2>
       </span>
     </div>
+    <div class="section__body">
+      <div class="card" *ngFor="let book of books">
+        <div class="card__image"></div>
+        <div class="card__content"></div>
+      </div>
+    </div>
   </section>
+
+  <!-- New -->
   <section>
     <div class="section__header">
       <h1 class="section__header__title">
         New
       </h1>
     </div>
+    <div class="section__body">
+      <div class="card" *ngFor="let book of books">
+        <div class="card__image"></div>
+        <div class="card__content"></div>
+      </div>
+    </div>
   </section>
+
 </div>

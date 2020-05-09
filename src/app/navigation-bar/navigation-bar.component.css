@@ -12,7 +12,8 @@
   /* Visual */
   @apply bg-white;
   /* Misc */
-  box-shadow: 0 5px 10px rgba(235, 235, 235, var(--box-shadow-opacity));
+  box-shadow: 0 5px 10px
+    rgba(var(--shadow-color--rgb), var(--box-shadow-opacity));
 }
 
 .app-name {

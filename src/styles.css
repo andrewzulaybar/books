@@ -7,6 +7,9 @@
 
 :root {
   --nav-bar-height: 80px;
+
+  /* Global variables */
+  --shadow-color--rgb: 235, 235, 235;
 }
 
 body {

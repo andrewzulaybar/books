@@ -2,12 +2,40 @@
   @apply h-full px-12 w-full;
 }
 
-h2 {
-  @apply mx-4;
-}
-
 section {
   @apply p-12;
+}
+
+.card {
+  /* Box-model */
+  @apply m-2 p-4;
+  /* Visual */
+  @apply rounded-md;
+}
+
+.card__content {
+  @apply h-20 w-full;
+}
+
+.card__image {
+  /* Box-model */
+  @apply w-32 h-48;
+  /* Visual */
+  @apply bg-gray-300;
+  box-shadow: 0 5px 10px rgba(var(--shadow-color--rgb), 0.5);
+  /* Transitions */
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.card__image:hover {
+  /* Positioning */
+  @apply -mt-2;
+  /* Visual */
+  box-shadow: 0 5px 10px rgba(var(--shadow-color--rgb), 1);
+}
+
+.section__body {
+  @apply flex justify-between px-6;
 }
 
 .section__header {

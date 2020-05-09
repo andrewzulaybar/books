@@ -14,7 +14,7 @@ section {
 }
 
 .card__content {
-  @apply h-20 w-full;
+  @apply py-4 w-full;
 }
 
 .card__image {
@@ -32,6 +32,14 @@ section {
   @apply -mt-2;
   /* Visual */
   box-shadow: 0 5px 10px rgba(var(--shadow-color--rgb), 1);
+}
+
+.card__title {
+  @apply text-gray-500 text-xl;
+}
+
+.card__subtitle {
+  @apply text-gray-400 text-sm uppercase;
 }
 
 .section__body {

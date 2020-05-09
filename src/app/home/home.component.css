@@ -1,3 +1,15 @@
+/* Private classes */
+
+.header--h1 {
+  @apply text-gray-500 text-xl tracking-wide uppercase;
+}
+
+.header--h2 {
+  @apply text-gray-400 text-sm tracking-widest uppercase;
+}
+
+/* Public classes */
+
 #home {
   @apply h-full px-12 w-full;
 }
@@ -68,33 +80,23 @@
   /* Box-model */
   @apply flex items-center;
   /* Typography */
-  @apply text-gray-400 text-sm uppercase;
-}
-
-.section__footer__more h2 {
-  /* Box-model */
-  @apply mx-2;
-  /* Typography */
-  @apply tracking-widest;
+  @apply header--h2;
 }
 
 .section__header {
-  /* Box-model */
-  @apply flex justify-between w-full;
-  /* Typography */
-  @apply tracking-wide;
+  @apply flex items-center justify-between w-full;
 }
 
 .section__header__scope {
   /* Box-model */
-  @apply flex inline-flex m-4 px-8;
+  @apply m-4 px-8;
   /* Typography */
-  @apply text-gray-400;
+  @apply header--h2;
 }
 
 .section__header__title {
   /* Box-model */
   @apply m-4 px-8;
   /* Typography */
-  @apply text-gray-500 text-xl uppercase;
+  @apply header--h1;
 }

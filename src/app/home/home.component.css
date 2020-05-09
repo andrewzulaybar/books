@@ -2,8 +2,12 @@
   @apply h-full px-12 w-full;
 }
 
-section {
-  @apply p-12;
+#new {
+  @apply px-12 pb-12;
+}
+
+#trending {
+  @apply px-12 pt-12;
 }
 
 .card {
@@ -42,8 +46,36 @@ section {
   @apply text-gray-400 text-sm uppercase;
 }
 
+.fa-angle-double-right {
+  /* Positioning */
+  @apply mb-px;
+  /* Typography */
+  @apply text-base;
+  -webkit-text-stroke: 1px white;
+}
+
 .section__body {
   @apply flex justify-between px-6;
+}
+
+.section__footer {
+  @apply h-12 px-12 w-full;
+}
+
+.section__footer__more {
+  /* Positioning */
+  @apply float-right;
+  /* Box-model */
+  @apply flex items-center;
+  /* Typography */
+  @apply text-gray-400 text-sm uppercase;
+}
+
+.section__footer__more h2 {
+  /* Box-model */
+  @apply mx-2;
+  /* Typography */
+  @apply tracking-widest;
 }
 
 .section__header {

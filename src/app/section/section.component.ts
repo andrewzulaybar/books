@@ -6,8 +6,9 @@ import { Component, Input, OnInit } from '@angular/core';
   styleUrls: ['./section.component.css'],
 })
 export class SectionComponent implements OnInit {
-  @Input() public title: string;
+  @Input() public infoRoute: string;
   @Input() public options: string;
+  @Input() public title: string;
 
   public id: string;
 

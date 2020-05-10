@@ -1,25 +1,17 @@
 <div id="home">
 
   <!-- Trending -->
-  <section id="trending">
-    <app-section-header title="Trending" [options]="trendingOptions"></app-section-header>
-    <div class="section__body">
-      <ng-container *ngFor="let book of books">
-        <app-card-small [content]="book"></app-card-small>
-      </ng-container>
-    </div>
-    <app-section-footer></app-section-footer>
-  </section>
+  <app-section title="Trending" [options]="trendingOptions">
+    <ng-container *ngFor="let book of books">
+      <app-card-small [content]="book"></app-card-small>
+    </ng-container>
+  </app-section>
 
   <!-- New -->
-  <section id="new">
-    <app-section-header title="New"></app-section-header>
-    <div class="section__body">
-      <ng-container *ngFor="let book of books">
-        <app-card-small [content]="book"></app-card-small>
-      </ng-container>
-    </div>
-    <app-section-footer></app-section-footer>
-  </section>
+  <app-section title="New">
+    <ng-container *ngFor="let book of books">
+      <app-card-small [content]="book"></app-card-small>
+    </ng-container>
+  </app-section>
 
 </div>

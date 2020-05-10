@@ -1,0 +1,3 @@
+.section__body {
+  @apply flex justify-between px-6;
+}

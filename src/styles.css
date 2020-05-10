@@ -34,3 +34,13 @@ h1 {
 h2 {
   @apply text-gray-400 text-sm tracking-widest uppercase;
 }
+
+/* Home Page */
+
+#new {
+  @apply px-12 pb-12;
+}
+
+#trending {
+  @apply px-12 pt-12;
+}

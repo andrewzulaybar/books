@@ -1,15 +1,3 @@
 #home {
   @apply h-full px-12 w-full;
 }
-
-#new {
-  @apply px-12 pb-12;
-}
-
-#trending {
-  @apply px-12 pt-12;
-}
-
-.section__body {
-  @apply flex justify-between px-6;
-}

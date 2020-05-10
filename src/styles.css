@@ -35,6 +35,14 @@ h2 {
   @apply text-gray-400 text-sm tracking-widest uppercase;
 }
 
+h3 {
+  @apply text-gray-500 text-sm font-bold normal-case;
+}
+
+h4 {
+  @apply text-gray-400 text-xs uppercase;
+}
+
 /* Home Page */
 
 #new {

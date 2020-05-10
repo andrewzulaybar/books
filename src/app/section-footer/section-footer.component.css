@@ -1,0 +1,17 @@
+.fa-angle-double-right {
+  /* Positioning */
+  @apply mt-1;
+  /* Typography */
+  -webkit-text-stroke: 1px white;
+}
+
+.footer {
+  @apply h-12 px-12 w-full;
+}
+
+.info {
+  /* Positioning */
+  @apply float-right;
+  /* Box-model */
+  @apply flex items-center align-middle;
+}

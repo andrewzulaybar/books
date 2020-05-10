@@ -10,24 +10,6 @@
   @apply px-12 pt-12;
 }
 
-.fa-angle-double-right {
-  /* Positioning */
-  @apply mt-1;
-  /* Typography */
-  -webkit-text-stroke: 1px white;
-}
-
 .section__body {
   @apply flex justify-between px-6;
-}
-
-.section__footer {
-  @apply h-12 px-12 w-full;
-}
-
-.section__footer__more {
-  /* Positioning */
-  @apply float-right;
-  /* Box-model */
-  @apply flex items-center align-middle;
 }

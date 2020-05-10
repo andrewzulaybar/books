@@ -7,6 +7,7 @@ import { NavigationBarComponent } from './navigation-bar/navigation-bar.componen
 import { HomeComponent } from './home/home.component';
 import { SectionHeaderComponent } from './section-header/section-header.component';
 import { CardSmallComponent } from './card-small/card-small.component';
+import { SectionFooterComponent } from './section-footer/section-footer.component';
 
 @NgModule({
   declarations: [
@@ -15,6 +16,7 @@ import { CardSmallComponent } from './card-small/card-small.component';
     HomeComponent,
     SectionHeaderComponent,
     CardSmallComponent,
+    SectionFooterComponent,
   ],
   imports: [BrowserModule, AppRoutingModule],
   providers: [],

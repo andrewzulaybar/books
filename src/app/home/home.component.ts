@@ -6,7 +6,14 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./home.component.css'],
 })
 export class HomeComponent implements OnInit {
-  public books: number[] = Array(6).fill(0);
+  public books: { image: string; title: string; subtitle: string }[] = [
+    { image: '', title: 'Title', subtitle: 'Author' },
+    { image: '', title: 'Title', subtitle: 'Author' },
+    { image: '', title: 'Title', subtitle: 'Author' },
+    { image: '', title: 'Title', subtitle: 'Author' },
+    { image: '', title: 'Title', subtitle: 'Author' },
+    { image: '', title: 'Title', subtitle: 'Author' },
+  ];
 
   public trendingOptions: string[] = ['International', 'Canada', 'My Network'];
 

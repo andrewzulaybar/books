@@ -4,13 +4,9 @@
   <section id="trending">
     <app-section-header title="Trending" [options]="trendingOptions"></app-section-header>
     <div class="section__body">
-      <div class="card" *ngFor="let book of books">
-        <div class="card__image"></div>
-        <div class="card__content">
-          <h2 class="card__title">Title</h2>
-          <h3 class="card__subtitle">Author</h3>
-        </div>
-      </div>
+      <ng-container *ngFor="let book of books">
+        <app-card-small [content]="book"></app-card-small>
+      </ng-container>
     </div>
     <div class="section__footer">
       <span class="section__footer__more">
@@ -26,13 +22,9 @@
   <section id="new">
     <app-section-header title="New"></app-section-header>
     <div class="section__body">
-      <div class="card" *ngFor="let book of books">
-        <div class="card__image"></div>
-        <div class="card__content">
-          <h2 class="card__title">Title</h2>
-          <h3 class="card__subtitle">Author</h3>
-        </div>
-      </div>
+      <ng-container *ngFor="let book of books">
+        <app-card-small [content]="book"></app-card-small>
+      </ng-container>
     </div>
     <div class="section__footer">
       <span class="section__footer__more">

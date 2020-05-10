@@ -1,15 +1,3 @@
-/* Private classes */
-
-.header--h1 {
-  @apply text-gray-500 text-xl tracking-wide uppercase;
-}
-
-.header--h2 {
-  @apply text-gray-400 text-sm tracking-widest uppercase;
-}
-
-/* Public classes */
-
 #home {
   @apply h-full px-12 w-full;
 }
@@ -60,9 +48,8 @@
 
 .fa-angle-double-right {
   /* Positioning */
-  @apply mb-px;
+  @apply mt-1;
   /* Typography */
-  @apply text-base;
   -webkit-text-stroke: 1px white;
 }
 
@@ -78,25 +65,5 @@
   /* Positioning */
   @apply float-right;
   /* Box-model */
-  @apply flex items-center;
-  /* Typography */
-  @apply header--h2;
-}
-
-.section__header {
-  @apply flex items-center justify-between w-full;
-}
-
-.section__header__scope {
-  /* Box-model */
-  @apply m-4 px-8;
-  /* Typography */
-  @apply header--h2;
-}
-
-.section__header__title {
-  /* Box-model */
-  @apply m-4 px-8;
-  /* Typography */
-  @apply header--h1;
+  @apply flex items-center align-middle;
 }

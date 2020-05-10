@@ -26,3 +26,11 @@ html {
   /* Misc */
   @apply overflow-x-hidden;
 }
+
+h1 {
+  @apply text-gray-500 text-xl tracking-wide uppercase;
+}
+
+h2 {
+  @apply text-gray-400 text-sm tracking-widest uppercase;
+}

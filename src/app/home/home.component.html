@@ -2,24 +2,7 @@
 
   <!-- Trending -->
   <section id="trending">
-    <div class="section__header">
-      <h1 class="section__header__title">
-        Trending
-      </h1>
-      <h2 class="section__header__scope">
-        <span class="mr-2">
-          International 
-        </span>
-        ⦁
-        <span class="mx-2">
-          Canada 
-        </span>
-        ⦁
-        <span class="ml-2">
-          My Network
-        </span>
-      </h2>
-    </div>
+    <app-section-header title="Trending" [options]="trendingOptions"></app-section-header>
     <div class="section__body">
       <div class="card" *ngFor="let book of books">
         <div class="card__image"></div>
@@ -30,20 +13,18 @@
       </div>
     </div>
     <div class="section__footer">
-      <div class="section__footer__more">
+      <span class="section__footer__more">
         <h2 class="mx-2">View All</h2>
-        <i class="fas fa-angle-double-right"></i>
-      </div>
+        <h2>
+          <i class="fas fa-angle-double-right"></i>
+        </h2>
+      </span>
     </div>
   </section>
 
   <!-- New -->
   <section id="new">
-    <div class="section__header">
-      <h1 class="section__header__title">
-        New
-      </h1>
-    </div>
+    <app-section-header title="New"></app-section-header>
     <div class="section__body">
       <div class="card" *ngFor="let book of books">
         <div class="card__image"></div>
@@ -54,10 +35,12 @@
       </div>
     </div>
     <div class="section__footer">
-      <div class="section__footer__more">
+      <span class="section__footer__more">
         <h2 class="mx-2">View All</h2>
-        <i class="fas fa-angle-double-right"></i>
-      </div>
+        <h2>
+          <i class="fas fa-angle-double-right"></i>
+        </h2>
+      </span>
     </div>
   </section>
 

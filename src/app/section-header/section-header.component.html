@@ -1,0 +1,13 @@
+<div class="header">
+  <h1 class="title">
+    {{ title }}
+  </h1>
+  <span class="flex">
+    <ng-container *ngFor="let option of options; last as isLastOption">
+      <h2>{{ option }}</h2>
+      <span *ngIf="!isLastOption" class="mx-2">
+        <h2>&#10625;</h2>
+      </span>
+    </ng-container>
+  </span>
+</div>

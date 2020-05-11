@@ -10,11 +10,7 @@ export class SectionComponent implements OnInit {
   @Input() public options: string;
   @Input() public title: string;
 
-  public id: string;
-
   constructor() {}
 
-  ngOnInit(): void {
-    this.id = this.title.toLowerCase();
-  }
+  ngOnInit(): void {}
 }

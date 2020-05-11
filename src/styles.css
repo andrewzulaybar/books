@@ -43,12 +43,12 @@ h4 {
   @apply text-gray-400 text-xs uppercase;
 }
 
-/* Home Page */
+/* All Pages */
 
-#new {
-  @apply px-12 pb-12;
+app-section + app-section > section {
+  @apply pt-6;
 }
 
-#trending {
-  @apply px-12 pt-12;
+.base {
+  @apply h-full px-12 w-full;
 }

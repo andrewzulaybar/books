@@ -1,9 +1,9 @@
-<section [id]="id">
+<section>
   <app-section-header [title]="title" [options]="options"></app-section-header>
 
   <div class="section__body">
     <ng-content></ng-content>
   </div>
 
-  <app-section-footer [infoRoute]="infoRoute"></app-section-footer>
+  <app-section-footer *ngIf="infoRoute" [infoRoute]="infoRoute"></app-section-footer>
 </section>

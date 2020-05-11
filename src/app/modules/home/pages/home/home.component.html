@@ -1,0 +1,19 @@
+<div class="base">
+  <!-- Trending -->
+  <app-section-container
+    title="Trending"
+    [options]="trendingOptions"
+    infoRoute="explore/trending"
+  >
+    <ng-container *ngFor="let book of books">
+      <app-card-small [content]="book"></app-card-small>
+    </ng-container>
+  </app-section-container>
+
+  <!-- New -->
+  <app-section-container title="New" infoRoute="explore/new">
+    <ng-container *ngFor="let book of books">
+      <app-card-small [content]="book"></app-card-small>
+    </ng-container>
+  </app-section-container>
+</div>

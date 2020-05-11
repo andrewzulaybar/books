@@ -45,7 +45,7 @@ h4 {
 
 /* All Pages */
 
-app-section + app-section > section {
+app-section-container + app-section-container > section {
   @apply pt-6;
 }
 

@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 )
 
@@ -63,10 +65,35 @@ func PublicationsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(bytes)
+	case "POST":
+		publication, err := createPublication(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		bytes, err := json.Marshal(publication)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(bytes)
 	default:
 		http.Error(w, http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)
 	}
+}
+
+func createPublication(body io.Reader) (*Publication, error) {
+	var publication Publication
+	err := json.NewDecoder(body).Decode(&publication)
+	if err != nil {
+		message := http.StatusText(http.StatusUnprocessableEntity)
+		return nil, errors.New(message)
+	}
+	publications = append(publications, publication)
+	return &publication, nil
 }
 
 func getPublications() []Publication {

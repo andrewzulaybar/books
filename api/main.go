@@ -1,56 +1,42 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
+
+	"github.com/andrewzulaybar/books/api/db"
 )
+
+var database *sql.DB
 
 // Publication represents a specific edition of a work
 type Publication struct {
-	Image  string `json:"image"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
-}
-
-var publications []Publication = []Publication{
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
-		Title:  "Normal People",
-		Author: "Sally Rooney",
-	},
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/91twTG-CQ8L.jpg",
-		Title:  "Little Fires Everywhere",
-		Author: "Celeste Ng",
-	},
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/51j5p18mJNL.jpg",
-		Title:  "Where the Crawdads Sing",
-		Author: "Delia Owens",
-	},
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/81af+MCATTL.jpg",
-		Title:  "The Great Gatsby",
-		Author: "F. Scott Fitzgerald",
-	},
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/81iVsj91eQL.jpg",
-		Title:  "American Dirt",
-		Author: "Jeanine Cummins",
-	},
-	{
-		Image:  "https://images-na.ssl-images-amazon.com/images/I/91Xq+S+F2jL.jpg",
-		Title:  "Atomic Habits",
-		Author: "James Clear",
-	},
+	ID       int    `json:"id"`
+	Author   string `json:"author"`
+	ImageURL string `json:"image_url"`
+	Title    string `json:"title"`
 }
 
 func main() {
+	pool, err := db.Connect()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Disconnect(pool)
+
+	err = db.Init(pool)
+	if err != nil {
+		panic(err)
+	}
+	database = pool
+
 	http.HandleFunc("/api/publications", PublicationsHandler)
 
-	http.ListenAndServe(":8000", nil)
+	log.Fatal(http.ListenAndServe(":8000", nil))
 }
 
 // PublicationsHandler handles requests made to /api/publications
@@ -92,10 +78,40 @@ func createPublication(body io.Reader) (*Publication, error) {
 		message := http.StatusText(http.StatusUnprocessableEntity)
 		return nil, errors.New(message)
 	}
-	publications = append(publications, publication)
+
+	err = database.QueryRow(
+		`INSERT INTO publication
+                        (author, image_url, title)
+                VALUES
+                        ($1, $2, $3)
+                RETURNING id`,
+		publication.Author,
+		publication.ImageURL,
+		publication.Title,
+	).Scan(&(publication.ID))
+	if err != nil {
+		message := http.StatusText(http.StatusUnprocessableEntity)
+		return nil, errors.New(message)
+	}
 	return &publication, nil
 }
 
 func getPublications() []Publication {
+	rows, err := database.Query("SELECT * FROM publication")
+	if err != nil {
+		return []Publication{}
+	}
+
+	var publications []Publication = []Publication{}
+	for rows.Next() {
+		var id int
+		var author, title, imageURL string
+		err := rows.Scan(&id, &author, &title, &imageURL)
+		if err != nil {
+			return []Publication{}
+		}
+		publication := Publication{id, author, title, imageURL}
+		publications = append(publications, publication)
+	}
 	return publications
 }

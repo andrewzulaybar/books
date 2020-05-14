@@ -1,146 +1,74 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
-	"io"
 	"log"
 	"net/http"
 
-	"github.com/andrewzulaybar/books/api/db"
+	"github.com/andrewzulaybar/books/api/config"
+	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/publication"
 )
 
-var database *sql.DB
-
-// Publication represents a specific edition of a work
-type Publication struct {
-	ID       int    `json:"id"`
-	Author   string `json:"author"`
-	ImageURL string `json:"image_url"`
-	Title    string `json:"title"`
+func publicationsHandler(db *postgres.DB) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			publications := publication.Get(db)
+			bytes, err := json.Marshal(publications)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(bytes)
+		case http.MethodPost:
+			publication, err := publication.Post(db, r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			bytes, err := json.Marshal(publication)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write(bytes)
+		case http.MethodPatch:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		case http.MethodDelete:
+			err := publication.Delete(db, r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+		}
+	})
 }
 
 func main() {
-	pool, err := db.Connect()
+	conf, err := config.Load("config/.env")
 	if err != nil {
 		panic(err)
 	}
-	defer db.Disconnect(pool)
 
-	err = db.Init(pool)
+	db, err := postgres.Connect(conf.ConnectionString)
 	if err != nil {
 		panic(err)
 	}
-	database = pool
+	defer postgres.Disconnect(db)
 
-	http.HandleFunc("/api/publications", PublicationsHandler)
-
-	log.Fatal(http.ListenAndServe(":8000", nil))
-}
-
-// PublicationsHandler handles requests made to /api/publications
-func PublicationsHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		publications := getPublications()
-		bytes, err := json.Marshal(publications)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(bytes)
-	case "POST":
-		publication, err := createPublication(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		bytes, err := json.Marshal(publication)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write(bytes)
-	case "PATCH":
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	case "DELETE":
-		err := deletePublications(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		http.Error(w, http.StatusText(http.StatusInternalServerError),
-			http.StatusInternalServerError)
-	}
-}
-
-func createPublication(body io.Reader) (*Publication, error) {
-	var publication Publication
-	err := json.NewDecoder(body).Decode(&publication)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return nil, errors.New(message)
+	if err := postgres.Init(db); err != nil {
+		panic(err)
 	}
 
-	err = database.QueryRow(
-		`INSERT INTO publication
-                        (author, image_url, title)
-                VALUES
-                        ($1, $2, $3)
-                RETURNING id`,
-		publication.Author,
-		publication.ImageURL,
-		publication.Title,
-	).Scan(&(publication.ID))
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return nil, errors.New(message)
-	}
-	return &publication, nil
-}
+	http.HandleFunc("/api/publications", publicationsHandler(db))
 
-func deletePublications(body io.Reader) error {
-	var IDs struct {
-		IDs []int `json:"ids"`
-	}
-	err := json.NewDecoder(body).Decode(&IDs)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return errors.New(message)
-	}
-
-	for _, id := range IDs.IDs {
-		_, err := database.Exec("DELETE FROM publication WHERE id = $1", id)
-		if err != nil {
-			message := http.StatusText(http.StatusUnprocessableEntity)
-			return errors.New(message)
-		}
-	}
-	return nil
-}
-
-func getPublications() []Publication {
-	rows, err := database.Query("SELECT * FROM publication")
-	if err != nil {
-		return []Publication{}
-	}
-
-	var publications []Publication = []Publication{}
-	for rows.Next() {
-		var id int
-		var author, title, imageURL string
-		err := rows.Scan(&id, &author, &title, &imageURL)
-		if err != nil {
-			return []Publication{}
-		}
-		publication := Publication{id, author, title, imageURL}
-		publications = append(publications, publication)
-	}
-	return publications
+	log.Fatal(http.ListenAndServe(conf.Port, nil))
 }

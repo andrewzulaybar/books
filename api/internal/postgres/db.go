@@ -1,42 +1,37 @@
-package db
+package postgres
 
 import (
 	"database/sql"
 	"io/ioutil"
-	"os"
 
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" // postgres driver
 )
 
-var (
-	configPath string   = "config/config.env"
-	sqlFiles   []string = []string{"db/sql/schema.sql", "db/sql/init.sql"}
-)
+var sqlFiles []string = []string{"internal/sql/schema.sql", "internal/sql/init.sql"}
+
+// DB wraps our SQL database to allow for mocking.
+type DB struct{ *sql.DB }
 
 // Connect creates and returns a pool of connections to the database.
-func Connect() (*sql.DB, error) {
-	err := godotenv.Load(configPath)
+func Connect(params string) (*DB, error) {
+	db, err := sql.Open("postgres", params)
 	if err != nil {
 		return nil, err
 	}
-
-	connectionString := os.Getenv("CONNECTION_STRING")
-	db, err := sql.Open("postgres", connectionString)
-	if err != nil {
+	if err = db.Ping(); err != nil {
 		return nil, err
 	}
-	return db, nil
+	return &DB{db}, nil
 }
 
 // Disconnect closes the pool of connections to the given database.
-func Disconnect(db *sql.DB) {
+func Disconnect(db *DB) {
 	db.Close()
 }
 
 // Init creates tables by running the appropriate SQL scripts
 // and also inserts existing data that we have into the tables.
-func Init(database *sql.DB) error {
+func Init(db *DB) error {
 	for _, path := range sqlFiles {
 		bytes, err := ioutil.ReadFile(path)
 		if err != nil {
@@ -44,7 +39,7 @@ func Init(database *sql.DB) error {
 		}
 
 		statements := string(bytes)
-		if _, err := database.Exec(statements); err != nil {
+		if _, err := db.Exec(statements); err != nil {
 			return err
 		}
 	}

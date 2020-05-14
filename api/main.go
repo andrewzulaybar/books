@@ -67,6 +67,13 @@ func PublicationsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(bytes)
 	case "PATCH":
 		w.WriteHeader(http.StatusMethodNotAllowed)
+	case "DELETE":
+		err := deletePublications(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)
@@ -96,6 +103,26 @@ func createPublication(body io.Reader) (*Publication, error) {
 		return nil, errors.New(message)
 	}
 	return &publication, nil
+}
+
+func deletePublications(body io.Reader) error {
+	var IDs struct {
+		IDs []int `json:"ids"`
+	}
+	err := json.NewDecoder(body).Decode(&IDs)
+	if err != nil {
+		message := http.StatusText(http.StatusUnprocessableEntity)
+		return errors.New(message)
+	}
+
+	for _, id := range IDs.IDs {
+		_, err := database.Exec("DELETE FROM publication WHERE id = $1", id)
+		if err != nil {
+			message := http.StatusText(http.StatusUnprocessableEntity)
+			return errors.New(message)
+		}
+	}
+	return nil
 }
 
 func getPublications() []Publication {

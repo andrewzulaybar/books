@@ -65,6 +65,8 @@ func PublicationsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		w.Write(bytes)
+	case "PATCH":
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	default:
 		http.Error(w, http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)

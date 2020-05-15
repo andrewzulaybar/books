@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
+	"github.com/gorilla/mux"
 )
 
 func publicationsHandler(db *postgres.DB) http.HandlerFunc {
@@ -37,8 +39,6 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			w.Write(bytes)
-		case http.MethodPatch:
-			w.WriteHeader(http.StatusMethodNotAllowed)
 		case http.MethodDelete:
 			err := publication.Delete(db, r.Body)
 			if err != nil {
@@ -46,8 +46,6 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		default:
-			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 		}
 	})
 }
@@ -68,7 +66,16 @@ func main() {
 		panic(err)
 	}
 
-	http.HandleFunc("/api/publications", publicationsHandler(db))
+	r := mux.NewRouter()
 
-	log.Fatal(http.ListenAndServe(conf.Port, nil))
+	r.HandleFunc("/api/publications", publicationsHandler(db)).
+		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         conf.Address,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

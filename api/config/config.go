@@ -7,7 +7,7 @@ import (
 // Config holds the configuration variables needed to start the application.
 type Config struct {
 	ConnectionString string
-	Port             string
+	Address          string
 }
 
 // Load returns the environment variables set in the file of the given path.
@@ -19,6 +19,6 @@ func Load(path string) (*Config, error) {
 
 	return &Config{
 		ConnectionString: env["CONNECTION_STRING"],
-		Port:             env["PORT"],
+		Address:          env["ADDRESS"],
 	}, nil
 }

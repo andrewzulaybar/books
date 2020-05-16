@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
@@ -11,10 +12,17 @@ import (
 
 // Publication represents a specific edition of a work.
 type Publication struct {
-	ID       int    `json:"id"`
-	Author   string `json:"author"`
-	ImageURL string `json:"image_url"`
-	Title    string `json:"title"`
+	ID             int    `json:"id"`
+	Author         string `json:"author"`
+	EditionPubDate string `json:"edition_pub_date"`
+	Format         string `json:"format"`
+	ImageURL       string `json:"image_url"`
+	ISBN           string `json:"isbn"`
+	ISBN13         string `json:"isbn13"`
+	Language       string `json:"language"`
+	NumPages       int    `json:"num_pages"`
+	Publisher      string `json:"publisher"`
+	Title          string `json:"title"`
 }
 
 // Publications represents a list of publications.
@@ -51,13 +59,23 @@ func Get(db *postgres.DB) Publications {
 
 	var publications Publications = Publications{}
 	for rows.Next() {
-		var id int
-		var author, title, imageURL string
-		err := rows.Scan(&id, &author, &title, &imageURL)
-		if err != nil {
-			return Publications{}
+		var publication Publication
+		if err := rows.Scan(
+			&publication.ID,
+			&publication.Author,
+			&publication.EditionPubDate,
+			&publication.Format,
+			&publication.ImageURL,
+			&publication.ISBN,
+			&publication.ISBN13,
+			&publication.Language,
+			&publication.NumPages,
+			&publication.Publisher,
+			&publication.Title,
+		); err != nil {
+			log.Printf(err.Error())
+			continue
 		}
-		publication := Publication{id, author, title, imageURL}
 		publications = append(publications, publication)
 	}
 	return publications
@@ -74,12 +92,30 @@ func Post(db *postgres.DB, body io.Reader) (*Publication, error) {
 
 	err = db.QueryRow(
 		`INSERT INTO publication
-                        (author, image_url, title)
+                        (
+                                author,
+                                edition_pub_date,
+                                format,
+                                image_url,
+                                isbn,
+                                isbn13,
+                                language,
+                                num_pages,
+                                publisher,
+                                title
+                        )
                 VALUES
-                        ($1, $2, $3)
+                        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING id`,
 		publication.Author,
+		publication.EditionPubDate,
+		publication.Format,
 		publication.ImageURL,
+		publication.ISBN,
+		publication.ISBN13,
+		publication.Language,
+		publication.NumPages,
+		publication.Publisher,
 		publication.Title,
 	).Scan(&(publication.ID))
 	if err != nil {

@@ -50,6 +50,19 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 	})
 }
 
+func publicationHandler(db *postgres.DB) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.WriteHeader(http.StatusNotImplemented)
+		case http.MethodPatch:
+			w.WriteHeader(http.StatusNotImplemented)
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNotImplemented)
+		}
+	})
+}
+
 func main() {
 	conf, err := config.Load("config/.env")
 	if err != nil {
@@ -67,9 +80,12 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+	API := r.PathPrefix("/api").Subrouter()
 
-	r.HandleFunc("/api/publications", publicationsHandler(db)).
+	API.HandleFunc("/publications", publicationsHandler(db)).
 		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+	API.HandleFunc("/publications/{id:[0-9]+}", publicationHandler(db)).
+		Methods(http.MethodGet, http.MethodPatch, http.MethodDelete)
 
 	srv := &http.Server{
 		Handler:      r,

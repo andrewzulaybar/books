@@ -3,9 +3,11 @@ package publication
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 )
@@ -137,6 +139,72 @@ func GetMany(db *postgres.DB) Publications {
 		publications = append(publications, publication)
 	}
 	return publications
+}
+
+// PatchOne updates the entry in the database matching the given ID
+// with the attributes passed in the request body.
+func PatchOne(db *postgres.DB, body io.Reader, ID int) error {
+	var publication Publication
+	err := json.NewDecoder(body).Decode(&publication)
+	if err != nil {
+		message := http.StatusText(http.StatusUnprocessableEntity)
+		return errors.New(message)
+	}
+
+	w := map[string]string{
+		"author":            publication.Author,
+		"description":       publication.Description,
+		"initial_pub_date":  publication.InitialPubDate,
+		"original_language": publication.OriginalLanguage,
+		"title":             publication.Title,
+	}
+
+	var updateWork bool = false
+	query := "UPDATE work SET "
+	for column, value := range w {
+		if value != "" {
+			query += fmt.Sprintf("%s = '%s',", column, value)
+			updateWork = true
+		}
+	}
+	if updateWork {
+		query = strings.TrimSuffix(query, ",") + " WHERE id = (SELECT work_id FROM publication WHERE id = $1)"
+		_, err := db.Exec(query, ID)
+		if err != nil {
+			message := http.StatusText(http.StatusUnprocessableEntity)
+			return errors.New(message)
+		}
+	}
+
+	p := map[string]interface{}{
+		"edition_pub_date": publication.EditionPubDate,
+		"format":           publication.Format,
+		"image_url":        publication.ImageURL,
+		"isbn":             publication.ISBN,
+		"isbn13":           publication.ISBN13,
+		"language":         publication.Language,
+		"num_pages":        publication.NumPages,
+		"publisher":        publication.Publisher,
+	}
+
+	var updatePublication bool = false
+	query = "UPDATE publication SET "
+	for column, value := range p {
+		if value != "" && value != 0 {
+			query += fmt.Sprintf("%s = '%s',", column, value)
+			updatePublication = true
+		}
+	}
+	if updatePublication {
+		query = strings.TrimSuffix(query, ",") + " WHERE id = $1"
+		_, err := db.Exec(query, ID)
+		if err != nil {
+			message := http.StatusText(http.StatusUnprocessableEntity)
+			return errors.New(message)
+		}
+	}
+
+	return nil
 }
 
 // Post creates a publication from the properties in the request body.

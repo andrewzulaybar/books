@@ -72,7 +72,12 @@ func publicationHandler(db *postgres.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 			w.Write(bytes)
 		case http.MethodPatch:
-			w.WriteHeader(http.StatusNotImplemented)
+			err := publication.PatchOne(db, r.Body, ID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 		case http.MethodDelete:
 			err := publication.DeleteOne(db, ID)
 			if err != nil {

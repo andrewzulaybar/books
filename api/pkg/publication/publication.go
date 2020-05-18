@@ -32,9 +32,19 @@ type Publication struct {
 // Publications represents a list of publications.
 type Publications []Publication
 
-// Delete removes any publication from the database whose ID
+// DeleteOne removes the publication from the database matching the given ID.
+func DeleteOne(db *postgres.DB, ID int) error {
+	_, err := db.Exec("DELETE FROM publication WHERE id = $1", ID)
+	if err != nil {
+		message := http.StatusText(http.StatusUnprocessableEntity)
+		return errors.New(message)
+	}
+	return nil
+}
+
+// DeleteMany removes any publication from the database whose ID
 // matches any of the IDs given in the request body.
-func Delete(db *postgres.DB, body io.Reader) error {
+func DeleteMany(db *postgres.DB, body io.Reader) error {
 	var identifiers struct {
 		IDs []int `json:"ids"`
 	}

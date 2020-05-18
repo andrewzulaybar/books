@@ -26,7 +26,7 @@ type Publication struct {
 	NumPages         int    `json:"num_pages"`
 	Publisher        string `json:"publisher"`
 	Title            string `json:"title"`
-	WorkID           string `json:"work_id"`
+	WorkID           int    `json:"work_id"`
 }
 
 // Publications represents a list of publications.
@@ -54,12 +54,46 @@ func Delete(db *postgres.DB, body io.Reader) error {
 	return nil
 }
 
-// Get retrieves the entire list of publications from the database.
-func Get(db *postgres.DB) Publications {
+// GetOne retrieves the publication from the database matching the given ID.
+func GetOne(db *postgres.DB, ID int) Publication {
+	var publication Publication
+	err := db.QueryRow(
+		`SELECT
+                        publication.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
+                                isbn, isbn13, language, original_language, num_pages, publisher, title, work.id
+                FROM publication
+                JOIN work ON publication.work_id=work.id
+                WHERE publication.id = $1`,
+		ID,
+	).Scan(
+		&publication.ID,
+		&publication.Author,
+		&publication.Description,
+		&publication.EditionPubDate,
+		&publication.Format,
+		&publication.ImageURL,
+		&publication.InitialPubDate,
+		&publication.ISBN,
+		&publication.ISBN13,
+		&publication.Language,
+		&publication.OriginalLanguage,
+		&publication.NumPages,
+		&publication.Publisher,
+		&publication.Title,
+		&publication.WorkID,
+	)
+	if err != nil {
+		return Publication{}
+	}
+	return publication
+}
+
+// GetMany retrieves the entire list of publications from the database.
+func GetMany(db *postgres.DB) Publications {
 	rows, err := db.Query(
 		`SELECT
-                        work.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
-                                isbn, isbn13, language, original_language, num_pages, publisher, title
+                        publication.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
+                                isbn, isbn13, language, original_language, num_pages, publisher, title, work.id
                 FROM publication
                 JOIN work ON publication.work_id=work.id`,
 	)
@@ -85,6 +119,7 @@ func Get(db *postgres.DB) Publications {
 			&publication.NumPages,
 			&publication.Publisher,
 			&publication.Title,
+			&publication.WorkID,
 		); err != nil {
 			log.Printf(err.Error())
 			continue

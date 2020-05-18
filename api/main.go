@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/andrewzulaybar/books/api/config"
@@ -16,7 +17,7 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			publications := publication.Get(db)
+			publications := publication.GetMany(db)
 			bytes, err := json.Marshal(publications)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -52,9 +53,24 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 
 func publicationHandler(db *postgres.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ID, err := strconv.Atoi(vars["id"])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
-			w.WriteHeader(http.StatusNotImplemented)
+			publication := publication.GetOne(db, ID)
+			bytes, err := json.Marshal(publication)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(bytes)
 		case http.MethodPatch:
 			w.WriteHeader(http.StatusNotImplemented)
 		case http.MethodDelete:

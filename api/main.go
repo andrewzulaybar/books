@@ -17,7 +17,11 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			publications := publication.GetMany(db)
+			publications, err := publication.GetMany(db)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
 			bytes, err := json.Marshal(publications)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -27,7 +31,7 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 			w.Write(bytes)
 		case http.MethodPost:
-			publication, err := publication.Post(db, r.Body)
+			publication, err := publication.PostOne(db, r.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
@@ -41,8 +45,7 @@ func publicationsHandler(db *postgres.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusCreated)
 			w.Write(bytes)
 		case http.MethodDelete:
-			err := publication.DeleteMany(db, r.Body)
-			if err != nil {
+			if err := publication.DeleteMany(db, r.Body); err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
@@ -62,7 +65,11 @@ func publicationHandler(db *postgres.DB) http.HandlerFunc {
 
 		switch r.Method {
 		case http.MethodGet:
-			publication := publication.GetOne(db, ID)
+			publication, err := publication.GetOne(db, ID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
 			bytes, err := json.Marshal(publication)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -72,15 +79,13 @@ func publicationHandler(db *postgres.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 			w.Write(bytes)
 		case http.MethodPatch:
-			err := publication.PatchOne(db, r.Body, ID)
-			if err != nil {
+			if err := publication.PatchOne(db, r.Body, ID); err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
 		case http.MethodDelete:
-			err := publication.DeleteOne(db, ID)
-			if err != nil {
+			if err := publication.DeleteOne(db, ID); err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}

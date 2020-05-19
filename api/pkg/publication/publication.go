@@ -2,15 +2,15 @@ package publication
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"log"
-	"net/http"
 	"strings"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 )
+
+const columns string = `publication.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
+        isbn, isbn13, language, original_language, num_pages, publisher, title, work.id`
 
 // Publication represents a specific edition of a work.
 type Publication struct {
@@ -32,16 +32,12 @@ type Publication struct {
 }
 
 // Publications represents a list of publications.
-type Publications []Publication
+type Publications []*Publication
 
 // DeleteOne removes the publication from the database matching the given ID.
 func DeleteOne(db *postgres.DB, ID int) error {
 	_, err := db.Exec("DELETE FROM publication WHERE id = $1", ID)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return errors.New(message)
-	}
-	return nil
+	return err
 }
 
 // DeleteMany removes any publication from the database whose ID
@@ -50,34 +46,98 @@ func DeleteMany(db *postgres.DB, body io.Reader) error {
 	var identifiers struct {
 		IDs []int `json:"ids"`
 	}
-	err := json.NewDecoder(body).Decode(&identifiers)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return errors.New(message)
+	if err := json.NewDecoder(body).Decode(&identifiers); err != nil {
+		return err
 	}
 
-	for _, id := range identifiers.IDs {
-		_, err := db.Exec("DELETE FROM publication WHERE id = $1", id)
-		if err != nil {
-			message := http.StatusText(http.StatusUnprocessableEntity)
-			return errors.New(message)
+	for _, ID := range identifiers.IDs {
+		if err := DeleteOne(db, ID); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 // GetOne retrieves the publication from the database matching the given ID.
-func GetOne(db *postgres.DB, ID int) Publication {
-	var publication Publication
-	err := db.QueryRow(
-		`SELECT
-                        publication.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
-                                isbn, isbn13, language, original_language, num_pages, publisher, title, work.id
+func GetOne(db *postgres.DB, ID int) (*Publication, error) {
+	query := fmt.Sprintf(
+		`SELECT %s
                 FROM publication
                 JOIN work ON publication.work_id=work.id
                 WHERE publication.id = $1`,
-		ID,
-	).Scan(
+		columns,
+	)
+	row := db.QueryRow(query, ID)
+	return getPublication(row)
+}
+
+// GetMany retrieves the entire list of publications from the database.
+func GetMany(db *postgres.DB) (Publications, error) {
+	query := fmt.Sprintf(
+		`SELECT %s
+                FROM publication
+                JOIN work ON publication.work_id=work.id`,
+		columns,
+	)
+	rows, err := db.Query(query)
+	if err != nil {
+		return Publications{}, err
+	}
+
+	var publications Publications = Publications{}
+	for rows.Next() {
+		publication, err := getPublication(rows)
+		if err != nil {
+			return Publications{}, err
+		}
+		publications = append(publications, publication)
+	}
+	return publications, nil
+}
+
+// PatchOne updates the entry in the database matching the given ID
+// with the attributes passed in the request body.
+func PatchOne(db *postgres.DB, body io.Reader, ID int) error {
+	var publication Publication
+	publication.ID = ID
+	if err := json.NewDecoder(body).Decode(&publication); err != nil {
+		return err
+	}
+
+	if err := updateWork(db, &publication); err != nil {
+		return err
+	}
+
+	if err := updatePublication(db, &publication); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// PostOne creates a publication from the properties in the request body.
+func PostOne(db *postgres.DB, body io.Reader) (*Publication, error) {
+	var publication Publication
+	if err := json.NewDecoder(body).Decode(&publication); err != nil {
+		return nil, err
+	}
+
+	if err := postWork(db, &publication); err != nil {
+		return nil, err
+	}
+
+	if err := postPublication(db, &publication); err != nil {
+		return nil, err
+	}
+
+	return &publication, nil
+}
+
+func getPublication(row interface {
+	Scan(dest ...interface{}) error
+}) (*Publication, error) {
+	var publication Publication
+	err := row.Scan(
 		&publication.ID,
 		&publication.Author,
 		&publication.Description,
@@ -94,148 +154,14 @@ func GetOne(db *postgres.DB, ID int) Publication {
 		&publication.Title,
 		&publication.WorkID,
 	)
-	if err != nil {
-		return Publication{}
-	}
-	return publication
+	return &publication, err
 }
 
-// GetMany retrieves the entire list of publications from the database.
-func GetMany(db *postgres.DB) Publications {
-	rows, err := db.Query(
-		`SELECT
-                        publication.id, author, description, edition_pub_date, format, image_url, initial_pub_date,
-                                isbn, isbn13, language, original_language, num_pages, publisher, title, work.id
-                FROM publication
-                JOIN work ON publication.work_id=work.id`,
-	)
-	if err != nil {
-		return Publications{}
-	}
-
-	var publications Publications = Publications{}
-	for rows.Next() {
-		var publication Publication
-		if err := rows.Scan(
-			&publication.ID,
-			&publication.Author,
-			&publication.Description,
-			&publication.EditionPubDate,
-			&publication.Format,
-			&publication.ImageURL,
-			&publication.InitialPubDate,
-			&publication.ISBN,
-			&publication.ISBN13,
-			&publication.Language,
-			&publication.OriginalLanguage,
-			&publication.NumPages,
-			&publication.Publisher,
-			&publication.Title,
-			&publication.WorkID,
-		); err != nil {
-			log.Printf(err.Error())
-			continue
-		}
-		publications = append(publications, publication)
-	}
-	return publications
-}
-
-// PatchOne updates the entry in the database matching the given ID
-// with the attributes passed in the request body.
-func PatchOne(db *postgres.DB, body io.Reader, ID int) error {
-	var publication Publication
-	err := json.NewDecoder(body).Decode(&publication)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return errors.New(message)
-	}
-
-	w := map[string]string{
-		"author":            publication.Author,
-		"description":       publication.Description,
-		"initial_pub_date":  publication.InitialPubDate,
-		"original_language": publication.OriginalLanguage,
-		"title":             publication.Title,
-	}
-
-	var updateWork bool = false
-	query := "UPDATE work SET "
-	for column, value := range w {
-		if value != "" {
-			query += fmt.Sprintf("%s = '%s',", column, value)
-			updateWork = true
-		}
-	}
-	if updateWork {
-		query = strings.TrimSuffix(query, ",") + " WHERE id = (SELECT work_id FROM publication WHERE id = $1)"
-		_, err := db.Exec(query, ID)
-		if err != nil {
-			message := http.StatusText(http.StatusUnprocessableEntity)
-			return errors.New(message)
-		}
-	}
-
-	p := map[string]interface{}{
-		"edition_pub_date": publication.EditionPubDate,
-		"format":           publication.Format,
-		"image_url":        publication.ImageURL,
-		"isbn":             publication.ISBN,
-		"isbn13":           publication.ISBN13,
-		"language":         publication.Language,
-		"num_pages":        publication.NumPages,
-		"publisher":        publication.Publisher,
-	}
-
-	var updatePublication bool = false
-	query = "UPDATE publication SET "
-	for column, value := range p {
-		if value != "" && value != 0 {
-			query += fmt.Sprintf("%s = '%s',", column, value)
-			updatePublication = true
-		}
-	}
-	if updatePublication {
-		query = strings.TrimSuffix(query, ",") + " WHERE id = $1"
-		_, err := db.Exec(query, ID)
-		if err != nil {
-			message := http.StatusText(http.StatusUnprocessableEntity)
-			return errors.New(message)
-		}
-	}
-
-	return nil
-}
-
-// Post creates a publication from the properties in the request body.
-func Post(db *postgres.DB, body io.Reader) (*Publication, error) {
-	var publication Publication
-	err := json.NewDecoder(body).Decode(&publication)
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return nil, errors.New(message)
-	}
-
-	err = db.QueryRow(
-		`INSERT INTO work
-                        (author, description, initial_pub_date, original_language, title)
-                VALUES
-                        ($1, $2, $3, $4, $5)
-                RETURNING id`,
-		publication.Author,
-		publication.Description,
-		publication.InitialPubDate,
-		publication.OriginalLanguage,
-		publication.Title,
-	).Scan(&(publication.WorkID))
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return nil, errors.New(message)
-	}
-
-	err = db.QueryRow(
+func postPublication(db *postgres.DB, publication *Publication) error {
+	row := db.QueryRow(
 		`INSERT INTO publication
-                        (edition_pub_date, format, image_url, isbn, isbn13, language, num_pages, publisher, work_id)
+                        (edition_pub_date, format, image_url, isbn, isbn13,
+                                language, num_pages, publisher, work_id)
                 VALUES
                         ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING id`,
@@ -248,11 +174,86 @@ func Post(db *postgres.DB, body io.Reader) (*Publication, error) {
 		publication.NumPages,
 		publication.Publisher,
 		publication.WorkID,
-	).Scan(&(publication.ID))
-	if err != nil {
-		message := http.StatusText(http.StatusUnprocessableEntity)
-		return nil, errors.New(message)
+	)
+	return row.Scan(&(publication.ID))
+}
+
+func postWork(db *postgres.DB, publication *Publication) error {
+	row := db.QueryRow(
+		`INSERT INTO work
+                        (author, description, initial_pub_date, original_language, title)
+                VALUES
+                        ($1, $2, $3, $4, $5)
+                RETURNING id`,
+		publication.Author,
+		publication.Description,
+		publication.InitialPubDate,
+		publication.OriginalLanguage,
+		publication.Title,
+	)
+	return row.Scan(&(publication.WorkID))
+}
+
+func updatePublication(db *postgres.DB, publication *Publication) error {
+	p := map[string]interface{}{
+		"edition_pub_date": publication.EditionPubDate,
+		"format":           publication.Format,
+		"image_url":        publication.ImageURL,
+		"isbn":             publication.ISBN,
+		"isbn13":           publication.ISBN13,
+		"language":         publication.Language,
+		"num_pages":        publication.NumPages,
+		"publisher":        publication.Publisher,
 	}
 
-	return &publication, nil
+	var hasUpdate bool
+	query := "UPDATE publication SET "
+	for column, value := range p {
+		switch value.(type) {
+		case string:
+			if value != "" {
+				query += fmt.Sprintf("%s = '%s',", column, value)
+				hasUpdate = true
+			}
+		case int:
+			if value != 0 {
+				query += fmt.Sprintf("%s = %d,", column, value)
+				hasUpdate = true
+			}
+		}
+	}
+	if hasUpdate {
+		query = strings.TrimSuffix(query, ",") + " WHERE id = $1"
+		if _, err := db.Exec(query, publication.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateWork(db *postgres.DB, publication *Publication) error {
+	w := map[string]string{
+		"author":            publication.Author,
+		"description":       publication.Description,
+		"initial_pub_date":  publication.InitialPubDate,
+		"original_language": publication.OriginalLanguage,
+		"title":             publication.Title,
+	}
+
+	var hasUpdate bool
+	query := "UPDATE work SET "
+	for column, value := range w {
+		if value != "" {
+			query += fmt.Sprintf("%s = '%s',", column, value)
+			hasUpdate = true
+		}
+	}
+	if hasUpdate {
+		query = strings.TrimSuffix(query, ",") +
+			" WHERE id = (SELECT work_id FROM publication WHERE id = $1)"
+		if _, err := db.Exec(query, publication.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

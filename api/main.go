@@ -10,6 +10,7 @@ import (
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -119,7 +120,7 @@ func main() {
 		Methods(http.MethodGet, http.MethodPatch, http.MethodDelete)
 
 	srv := &http.Server{
-		Handler:      r,
+		Handler:      handlers.CORS()(r),
 		Addr:         conf.Address,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,

@@ -17,18 +17,18 @@ type Publication struct {
 	ID               int    `json:"id"`
 	Author           string `json:"author"`
 	Description      string `json:"description"`
-	EditionPubDate   string `json:"edition_pub_date"`
+	EditionPubDate   string `json:"editionPubDate"`
 	Format           string `json:"format"`
-	ImageURL         string `json:"image_url"`
-	InitialPubDate   string `json:"initial_pub_date"`
+	ImageURL         string `json:"imageUrl"`
+	InitialPubDate   string `json:"initialPubDate"`
 	ISBN             string `json:"isbn"`
 	ISBN13           string `json:"isbn13"`
 	Language         string `json:"language"`
-	OriginalLanguage string `json:"original_language"`
-	NumPages         int    `json:"num_pages"`
+	OriginalLanguage string `json:"originalLanguage"`
+	NumPages         int    `json:"numPages"`
 	Publisher        string `json:"publisher"`
 	Title            string `json:"title"`
-	WorkID           int    `json:"work_id"`
+	WorkID           int    `json:"workId"`
 }
 
 // Publications represents a list of publications.

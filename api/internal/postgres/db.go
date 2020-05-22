@@ -7,7 +7,11 @@ import (
 	_ "github.com/lib/pq" // postgres driver
 )
 
-var sqlFiles []string = []string{"internal/sql/schema.sql", "internal/sql/init.sql"}
+var sqlFiles []string = []string{
+	"internal/sql/init.sql",
+	"internal/sql/work.sql",
+	"internal/sql/publication.sql",
+}
 
 // DB wraps our SQL database to allow for mocking.
 type DB struct{ *sql.DB }

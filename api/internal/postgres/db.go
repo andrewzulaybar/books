@@ -7,10 +7,12 @@ import (
 	_ "github.com/lib/pq" // postgres driver
 )
 
-var sqlFiles []string = []string{
-	"internal/sql/init.sql",
-	"internal/sql/work.sql",
-	"internal/sql/publication.sql",
+const path string = "internal/sql/"
+
+var tables []string = []string{
+	"work",
+	"publication",
+	"location",
 }
 
 // DB wraps our SQL database to allow for mocking.
@@ -36,7 +38,7 @@ func Disconnect(db *DB) {
 // Init creates tables by running the appropriate SQL scripts
 // and also inserts existing data that we have into the tables.
 func Init(db *DB) error {
-	for _, path := range sqlFiles {
+	for _, path := range getFileNames() {
 		bytes, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
@@ -48,4 +50,13 @@ func Init(db *DB) error {
 		}
 	}
 	return nil
+}
+
+func getFileNames() []string {
+	fileNames := []string{path + "init.sql"}
+	for _, table := range tables {
+		fileName := path + table + ".sql"
+		fileNames = append(fileNames, fileName)
+	}
+	return fileNames
 }

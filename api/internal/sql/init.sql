@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS publication, work, location;
+DROP TABLE IF EXISTS location, account_user, author, publication, work;

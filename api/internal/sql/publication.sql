@@ -28,7 +28,13 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='Sally Rooney' AND title='Normal People'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'Sally' AND last_name = 'Rooney'
+                )
+                AND title = 'Normal People'
         )
     ),
     (
@@ -43,7 +49,13 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='Celeste Ng' AND title='Little Fires Everywhere'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'Celeste' AND last_name = 'Ng'
+                )
+                AND title = 'Little Fires Everywhere'
         )
     ),
     (
@@ -58,7 +70,13 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='Delia Owens' AND title='Where the Crawdads Sing'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'Delia' AND last_name = 'Owens'
+                )
+                AND title = 'Where the Crawdads Sing'
         )
     ),
     (
@@ -73,7 +91,13 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='F. Scott Fitzgerald' AND title='The Great Gatsby'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'F. Scott' AND last_name = 'Fitzgerald'
+                )
+                AND title = 'The Great Gatsby'
         )
     ),
     (
@@ -88,7 +112,13 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='Jeanine Cummins' AND title='American Dirt'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'Jeanine' AND last_name = 'Cummins'
+                )
+                AND title = 'American Dirt'
         )
     ),
     (
@@ -103,6 +133,12 @@ VALUES
         (
             SELECT id
             FROM work
-            WHERE author='James Clear' AND title='Atomic Habits'
+            WHERE author_id =
+                (
+                    SELECT id
+                    FROM author
+                    WHERE first_name = 'James' AND last_name = 'Clear'
+                )
+                AND title = 'Atomic Habits'
         )
     );

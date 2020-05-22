@@ -1,19 +1,24 @@
 CREATE TABLE work
 (
     id SERIAL PRIMARY KEY,
-    author VARCHAR (100) NOT NULL,
+    author_id INTEGER NOT NULL,
     description VARCHAR (5000) NOT NULL,
     initial_pub_date DATE NOT NULL,
     original_language VARCHAR (100) NOT NULL,
     title VARCHAR (200) NOT NULL,
-    UNIQUE (author, title)
+    UNIQUE (author_id, title),
+    FOREIGN KEY (author_id) REFERENCES author (id)
 );
 
 INSERT INTO work
-    (author, description, initial_pub_date, original_language, title)
+    (author_id, description, initial_pub_date, original_language, title)
 VALUES
     (
-        'Sally Rooney',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'Sally' AND last_name = 'Rooney'
+        ),
         'Connell Waldron is one of the most popular boys in his small-town high school--he is a star of the football
             team, an excellent student, and never wanting for attention from girls. The one thing he doesn''t have is
             money. Marianne Sheridan, a classmate of Connell''s, has the opposite problem. Marianne is plain-looking,
@@ -33,7 +38,11 @@ VALUES
         'Normal People'
     ),
     (
-        'Celeste Ng',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'Celeste' AND last_name = 'Ng'
+        ),
         'From the bestselling author of Everything I Never Told You, a riveting novel that traces the intertwined
             fates of the picture-perfect Richardson family and the enigmatic mother and daughter who upend their
             lives. <br>In Shaker Heights, a placid, progressive suburb of Cleveland, everything is planned—from the
@@ -58,7 +67,11 @@ VALUES
         'Little Fires Everywhere'
     ),
     (
-        'Delia Owens',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'Delia' AND last_name = 'Owens'
+        ),
         'For years, rumors of the "Marsh Girl" have haunted Barkley Cove, a quiet town on the North Carolina coast.
             So in late 1969, when handsome Chase Andrews is found dead, the locals immediately suspect Kya Clark, the
             so-called Marsh Girl. But Kya is not what they say. Sensitive and intelligent, she has survived for years
@@ -73,7 +86,11 @@ VALUES
         'Where the Crawdads Sing'
     ),
     (
-        'F. Scott Fitzgerald',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'F. Scott' AND last_name = 'Fitzgerald'
+        ),
         'The Great Gatsby, F. Scott Fitzgerald''s third book, stands as the supreme achievement of his career. This
             exemplary novel of the Jazz Age has been acclaimed by generations of readers. The story of the fabulously
             wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan, of lavish parties on Long Island at a
@@ -85,7 +102,11 @@ VALUES
         'The Great Gatsby'
     ),
     (
-        'Jeanine Cummins',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'Jeanine' AND last_name = 'Cummins'
+        ),
         'Lydia Quixano Pérez lives in the Mexican city of Acapulco. She runs a bookstore. She has a son, Luca, the
             love of her life, and a wonderful husband who is a journalist. And while there are cracks beginning to
             show in Acapulco because of the drug cartels, her life is, by and large, fairly comfortable. <br>Even
@@ -108,7 +129,11 @@ VALUES
         'American Dirt'
     ),
     (
-        'James Clear',
+        (
+            SELECT id
+            FROM author
+            WHERE first_name = 'James' AND last_name = 'Clear'
+        ),
         'No matter your goals, Atomic Habits offers a proven framework for improving - every day. James Clear, one of
             the world''s leading experts on habit formation, reveals practical strategies that will teach you exactly
             how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results.

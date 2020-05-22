@@ -10,9 +10,11 @@ import (
 const path string = "internal/sql/"
 
 var tables []string = []string{
+	"location",
+	"account_user",
+	"author",
 	"work",
 	"publication",
-	"location",
 }
 
 // DB wraps our SQL database to allow for mocking.

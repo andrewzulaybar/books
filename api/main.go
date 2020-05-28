@@ -101,15 +101,8 @@ func main() {
 		panic(err)
 	}
 
-	db, err := postgres.Connect(conf.ConnectionString)
-	if err != nil {
-		panic(err)
-	}
-	defer postgres.Disconnect(db)
-
-	if err := postgres.Init(db); err != nil {
-		panic(err)
-	}
+	db := postgres.Setup(conf.ConnectionString, "internal/sql/")
+	defer db.Disconnect()
 
 	r := mux.NewRouter()
 	API := r.PathPrefix("/api").Subrouter()

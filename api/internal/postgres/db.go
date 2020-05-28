@@ -7,8 +7,6 @@ import (
 	_ "github.com/lib/pq" // postgres driver
 )
 
-const path string = "internal/sql/"
-
 var tables []string = []string{
 	"location",
 	"account_user",
@@ -17,31 +15,35 @@ var tables []string = []string{
 	"publication",
 }
 
-// DB wraps our SQL database to allow for mocking.
+// DB wraps our SQL database.
 type DB struct{ *sql.DB }
 
-// Connect creates and returns a pool of connections to the database.
-func Connect(params string) (*DB, error) {
-	db, err := sql.Open("postgres", params)
+// Connect creates a pool of connections to the database
+// and initializes the db on the receiver.
+func (db *DB) Connect(params string) error {
+	database, err := sql.Open("postgres", params)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err = db.Ping(); err != nil {
-		return nil, err
+
+	if err = database.Ping(); err != nil {
+		return err
 	}
-	return &DB{db}, nil
+
+	db.DB = database
+	return nil
 }
 
-// Disconnect closes the pool of connections to the given database.
-func Disconnect(db *DB) {
-	db.Close()
+// Disconnect closes the pool of connections to the database on the receiver.
+func (db *DB) Disconnect() error {
+	return db.Close()
 }
 
-// Init creates tables by running the appropriate SQL scripts
-// and also inserts existing data that we have into the tables.
-func Init(db *DB) error {
-	for _, path := range getFileNames() {
-		bytes, err := ioutil.ReadFile(path)
+// Init creates tables and populates them with data
+// by running the scripts found at the given directory path.
+func (db *DB) Init(dirPath string) error {
+	for _, filePath := range getFilePaths(dirPath) {
+		bytes, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return err
 		}
@@ -54,11 +56,27 @@ func Init(db *DB) error {
 	return nil
 }
 
-func getFileNames() []string {
-	fileNames := []string{path + "init.sql"}
-	for _, table := range tables {
-		fileName := path + table + ".sql"
-		fileNames = append(fileNames, fileName)
+// Setup creates a new DB instance and returns it
+// after successfully connecting and initializing the database.
+func Setup(params string, sqlDirPath string) *DB {
+	db := new(DB)
+
+	if err := db.Connect(params); err != nil {
+		panic(err)
 	}
-	return fileNames
+
+	if err := db.Init(sqlDirPath); err != nil {
+		panic(err)
+	}
+
+	return db
+}
+
+func getFilePaths(dirPath string) []string {
+	filePaths := []string{dirPath + "init.sql"}
+	for _, table := range tables {
+		filePath := dirPath + table + ".sql"
+		filePaths = append(filePaths, filePath)
+	}
+	return filePaths
 }

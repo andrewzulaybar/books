@@ -88,20 +88,20 @@ func publicationHandler(p *publication.Service) http.HandlerFunc {
 		}
 
 		switch r.Method {
-		// case http.MethodGet:
-		// 	publication, err := publication.GetOne(db, ID)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	bytes, err := json.Marshal(publication)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	w.Header().Set("Content-Type", "application/json")
-		// 	w.WriteHeader(http.StatusOK)
-		// 	w.Write(bytes)
+		case http.MethodGet:
+			s, pub := p.GetPublication(id)
+			if s.Err() != nil {
+				http.Error(w, s.Message(), s.Code())
+				return
+			}
+			bytes, err := json.Marshal(*pub)
+			if err != nil {
+				http.Error(w, err.Error(), status.InternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(s.Code())
+			w.Write(bytes)
 		// case http.MethodPatch:
 		// 	if err := publication.PatchOne(db, r.Body, ID); err != nil {
 		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)

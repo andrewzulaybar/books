@@ -1,31 +1,33 @@
 package publication
 
 import (
+	"database/sql"
+	"fmt"
+
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/status"
+	"github.com/andrewzulaybar/books/api/pkg/work"
 )
 
-// const columns string = `publication.id, author_id, description, edition_pub_date, format, image_url, initial_pub_date,
-//         isbn, isbn13, language, original_language, num_pages, publisher, title, work.id`
+const columns string = `publication.id, edition_pub_date, format, image_url, isbn, isbn13, language, num_pages,
+        publisher, work.id, author_id, description, initial_pub_date, original_language, title`
 
 // Publication represents a specific edition of a work.
-// type Publication struct {
-// 	ID               int    `json:"id"`
-// 	Author           string `json:"author"`
-// 	Description      string `json:"description"`
-// 	EditionPubDate   string `json:"editionPubDate"`
-// 	Format           string `json:"format"`
-// 	ImageURL         string `json:"imageUrl"`
-// 	InitialPubDate   string `json:"initialPubDate"`
-// 	ISBN             string `json:"isbn"`
-// 	ISBN13           string `json:"isbn13"`
-// 	Language         string `json:"language"`
-// 	OriginalLanguage string `json:"originalLanguage"`
-// 	NumPages         int    `json:"numPages"`
-// 	Publisher        string `json:"publisher"`
-// 	Title            string `json:"title"`
-// 	WorkID           int    `json:"workId"`
-// }
+type Publication struct {
+	ID             int       `json:"id"`
+	EditionPubDate string    `json:"editionPubDate"`
+	Format         string    `json:"format"`
+	ImageURL       string    `json:"imageUrl"`
+	ISBN           string    `json:"isbn"`
+	ISBN13         string    `json:"isbn13"`
+	Language       string    `json:"language"`
+	NumPages       int       `json:"numPages"`
+	Publisher      string    `json:"publisher"`
+	Work           work.Work `json:"work"`
+}
+
+// Publications represents a list of publications.
+type Publications []Publication
 
 // Service wraps the database.
 type Service struct {
@@ -36,6 +38,13 @@ type Service struct {
 func (s Service) QueryMap() map[string]string {
 	return map[string]string{
 		"DeletePublication": `DELETE FROM publication WHERE id = $1`,
+		"GetPublication": fmt.Sprintf(
+			`SELECT %s
+                        FROM publication
+                        JOIN work ON publication.work_id=work.id
+                        WHERE publication.id = $1`,
+			columns,
+		),
 	}
 }
 
@@ -75,18 +84,21 @@ func (s *Service) DeletePublications(ids []int) (*status.Status, []int) {
 	return status.New(status.NoContent, ""), nil
 }
 
-// GetOne retrieves the publication from the database matching the given ID.
-// func GetOne(db *postgres.DB, ID int) (*Publication, error) {
-// 	query := fmt.Sprintf(
-// 		`SELECT %s
-//                 FROM publication
-//                 JOIN work ON publication.work_id=work.id
-//                 WHERE publication.id = $1`,
-// 		columns,
-// 	)
-// 	row := db.QueryRow(query, ID)
-// 	return getPublication(row)
-// }
+// GetPublication retrieves the publication from the database matching the given ID.
+func (s *Service) GetPublication(id int) (*status.Status, *Publication) {
+	db := s.DB
+	getPublication := s.QueryMap()["GetPublication"]
+
+	row := db.QueryRow(getPublication, id)
+	pub, err := s.getPublication(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return status.Newf(status.NotFound, "Publication with id = %d does not exist", id), nil
+		}
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+	return status.New(status.OK, ""), pub
+}
 
 // GetMany retrieves the entire list of publications from the database.
 // func GetMany(db *postgres.DB) (Publications, error) {
@@ -150,29 +162,29 @@ func (s *Service) DeletePublications(ids []int) (*status.Status, []int) {
 // 	return &publication, nil
 // }
 
-// func getPublication(row interface {
-// 	Scan(dest ...interface{}) error
-// }) (*Publication, error) {
-// 	var publication Publication
-// 	err := row.Scan(
-// 		&publication.ID,
-// 		&publication.Author,
-// 		&publication.Description,
-// 		&publication.EditionPubDate,
-// 		&publication.Format,
-// 		&publication.ImageURL,
-// 		&publication.InitialPubDate,
-// 		&publication.ISBN,
-// 		&publication.ISBN13,
-// 		&publication.Language,
-// 		&publication.OriginalLanguage,
-// 		&publication.NumPages,
-// 		&publication.Publisher,
-// 		&publication.Title,
-// 		&publication.WorkID,
-// 	)
-// 	return &publication, err
-// }
+func (s *Service) getPublication(row interface {
+	Scan(dest ...interface{}) error
+}) (*Publication, error) {
+	var pub Publication
+	err := row.Scan(
+		&pub.ID,
+		&pub.EditionPubDate,
+		&pub.Format,
+		&pub.ImageURL,
+		&pub.ISBN,
+		&pub.ISBN13,
+		&pub.Language,
+		&pub.NumPages,
+		&pub.Publisher,
+		&pub.Work.ID,
+		&pub.Work.AuthorID,
+		&pub.Work.Description,
+		&pub.Work.InitialPubDate,
+		&pub.Work.OriginalLanguage,
+		&pub.Work.Title,
+	)
+	return &pub, err
+}
 
 // func postPublication(db *postgres.DB, publication *Publication) error {
 // 	row := db.QueryRow(

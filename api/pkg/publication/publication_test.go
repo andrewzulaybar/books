@@ -7,6 +7,7 @@ import (
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/status"
+	"github.com/andrewzulaybar/books/api/pkg/work"
 )
 
 func getDB() *postgres.DB {
@@ -130,6 +131,72 @@ func TestDeletePublications(t *testing.T) {
 				if ids[i] != val {
 					t.Errorf("\nExpected: %d\nActual: %d\n", val, ids[i])
 				}
+			}
+		})
+	}
+}
+
+func TestGetPublication(t *testing.T) {
+	db := getDB()
+	defer db.Disconnect()
+
+	p := &publication.Service{DB: *db}
+
+	type Expected struct {
+		code int
+		pub  *publication.Publication
+	}
+
+	pub := &publication.Publication{
+		1,
+		"2019-04-16T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
+		"1984822179",
+		"9781984822178",
+		"English",
+		288,
+		"Hogarth",
+		work.Work{},
+	}
+
+	cases := []struct {
+		name     string
+		id       int
+		expected Expected
+	}{
+		{
+			"ValidId",
+			1,
+			Expected{
+				code: status.OK,
+				pub:  pub,
+			},
+		},
+		{
+			"InvalidId",
+			-1,
+			Expected{
+				code: status.NotFound,
+				pub:  nil,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, pub := p.GetPublication(c.id)
+			if code := s.Code(); code != exp.code {
+				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			}
+			if exp.pub != nil && pub != nil {
+				pub.Work = work.Work{}
+				if *exp.pub != *pub {
+					t.Errorf("\nExpected: %v\nActual: %v\n", *exp.pub, *pub)
+				}
+			} else if exp.pub != pub {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, pub)
 			}
 		})
 	}

@@ -32,7 +32,7 @@ func TestDeletePublication(t *testing.T) {
 		{
 			name:     "NegativeId",
 			id:       -1,
-			expected: status.DoesNotExist,
+			expected: status.NotFound,
 		},
 		{
 			name:     "ValidId",
@@ -42,12 +42,12 @@ func TestDeletePublication(t *testing.T) {
 		{
 			name:     "AlreadyDeletedId",
 			id:       1,
-			expected: status.DoesNotExist,
+			expected: status.NotFound,
 		},
 		{
-			name:     "NotFoundId",
+			name:     "IdNotFound",
 			id:       1000000,
-			expected: status.DoesNotExist,
+			expected: status.NotFound,
 		},
 	}
 
@@ -56,6 +56,80 @@ func TestDeletePublication(t *testing.T) {
 			s := p.DeletePublication(c.id)
 			if code := s.Code(); code != c.expected {
 				t.Errorf("\nExpected: %d\nActual: %d\n", c.expected, code)
+			}
+		})
+	}
+}
+
+func TestDeletePublications(t *testing.T) {
+	db := getDB()
+	defer db.Disconnect()
+
+	p := &publication.Service{DB: *db}
+
+	type Expected struct {
+		code int
+		ids  []int
+	}
+
+	cases := []struct {
+		name     string
+		ids      []int
+		expected Expected
+	}{
+		{
+			name: "OneId",
+			ids:  []int{1},
+			expected: Expected{
+				code: status.NoContent,
+				ids:  nil,
+			},
+		},
+		{
+			name: "MultipleIds",
+			ids:  []int{2, 3, 4},
+			expected: Expected{
+				code: status.NoContent,
+				ids:  nil,
+			},
+		},
+		{
+			name: "AlreadyDeletedIds",
+			ids:  []int{1, 2, 3},
+			expected: Expected{
+				code: status.OK,
+				ids:  []int{1, 2, 3},
+			},
+		},
+		{
+			name: "IncludesIdNotFound",
+			ids:  []int{5, 6, -1},
+			expected: Expected{
+				code: status.OK,
+				ids:  []int{-1},
+			},
+		},
+		{
+			name: "AllIdsNotFound",
+			ids:  []int{-1, -2, -3},
+			expected: Expected{
+				code: status.OK,
+				ids:  []int{-1, -2, -3},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, ids := p.DeletePublications(c.ids)
+			if code := s.Code(); code != exp.code {
+				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			}
+			for i, val := range exp.ids {
+				if ids[i] != val {
+					t.Errorf("\nExpected: %d\nActual: %d\n", val, ids[i])
+				}
 			}
 		})
 	}

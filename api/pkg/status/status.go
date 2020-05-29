@@ -13,7 +13,7 @@ const (
 
 	BadRequest          int = 400
 	Unauthorized        int = 401
-	DoesNotExist        int = 404
+	NotFound            int = 404
 	MethodNotAllowed    int = 405
 	Conflict            int = 409
 	UnprocessableEntity int = 422

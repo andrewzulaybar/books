@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -45,12 +46,34 @@ func publicationsHandler(p *publication.Service) http.HandlerFunc {
 		// 	w.Header().Set("Content-Type", "application/json")
 		// 	w.WriteHeader(http.StatusCreated)
 		// 	w.Write(bytes)
-		// case http.MethodDelete:
-		// 	if err := publication.DeleteMany(db, r.Body); err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	w.WriteHeader(http.StatusNoContent)
+		case http.MethodDelete:
+			type identifiers struct {
+				IDs []int `json:"ids"`
+			}
+
+			var toDelete identifiers
+			if err := json.NewDecoder(r.Body).Decode(&toDelete); err != nil {
+				http.Error(w, err.Error(), status.UnprocessableEntity)
+				return
+			}
+
+			s, ids := p.DeletePublications(toDelete.IDs)
+			if s.Err() != nil {
+				http.Error(w, s.Message(), s.Code())
+				return
+			}
+			if ids != nil {
+				notFound := identifiers{IDs: ids}
+				bytes, err := json.Marshal(notFound)
+				if err != nil {
+					http.Error(w, err.Error(), status.InternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(bytes)
+				return
+			}
+			w.WriteHeader(s.Code())
 		}
 	})
 }
@@ -86,11 +109,12 @@ func publicationHandler(p *publication.Service) http.HandlerFunc {
 		// 	}
 		// 	w.WriteHeader(http.StatusNoContent)
 		case http.MethodDelete:
-			if s := p.DeletePublication(id); s.Err() != nil {
+			s := p.DeletePublication(id)
+			if s.Err() != nil {
 				http.Error(w, s.Message(), s.Code())
 				return
 			}
-			w.WriteHeader(status.NoContent)
+			w.WriteHeader(s.Code())
 		}
 	})
 }

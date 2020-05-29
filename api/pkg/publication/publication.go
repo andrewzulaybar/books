@@ -54,29 +54,26 @@ func (s *Service) DeletePublication(id int) *status.Status {
 		return status.New(status.InternalServerError, err.Error())
 	}
 	if numDeleted == 0 {
-		return status.Newf(status.DoesNotExist, "Publication with id = %d does not exist", id)
+		return status.Newf(status.NotFound, "Publication with id = %d does not exist", id)
 	}
 
 	return status.New(status.NoContent, "")
 }
 
-// DeleteMany removes any publication from the database whose ID
-// matches any of the IDs given in the request body.
-// func DeleteMany(db *postgres.DB, body io.Reader) error {
-// 	var identifiers struct {
-// 		IDs []int `json:"ids"`
-// 	}
-// 	if err := json.NewDecoder(body).Decode(&identifiers); err != nil {
-// 		return err
-// 	}
+// DeletePublications removes the entries in the publication table matching the given ids.
+func (s *Service) DeletePublications(ids []int) (*status.Status, []int) {
+	notFound := []int{}
+	for _, id := range ids {
+		if s := s.DeletePublication(id); s.Code() == status.NotFound {
+			notFound = append(notFound, id)
+		}
+	}
 
-// 	for _, ID := range identifiers.IDs {
-// 		if err := DeleteOne(db, ID); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
+	if len(notFound) > 0 {
+		return status.Newf(status.OK, "The following publications could not be found: %v", notFound), notFound
+	}
+	return status.New(status.NoContent, ""), nil
+}
 
 // GetOne retrieves the publication from the database matching the given ID.
 // func GetOne(db *postgres.DB, ID int) (*Publication, error) {

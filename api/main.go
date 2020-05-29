@@ -18,20 +18,20 @@ import (
 func publicationsHandler(p *publication.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		// case http.MethodGet:
-		// 	publications, err := publication.GetMany(db)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	bytes, err := json.Marshal(publications)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	w.Header().Set("Content-Type", "application/json")
-		// 	w.WriteHeader(http.StatusOK)
-		// 	w.Write(bytes)
+		case http.MethodGet:
+			s, pubs := p.GetPublications()
+			if s.Err() != nil {
+				http.Error(w, s.Message(), s.Code())
+				return
+			}
+			bytes, err := json.Marshal(pubs)
+			if err != nil {
+				http.Error(w, err.Error(), status.InternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(s.Code())
+			w.Write(bytes)
 		// case http.MethodPost:
 		// 	publication, err := publication.PostOne(db, r.Body)
 		// 	if err != nil {

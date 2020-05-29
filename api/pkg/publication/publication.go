@@ -45,6 +45,12 @@ func (s Service) QueryMap() map[string]string {
                         WHERE publication.id = $1`,
 			columns,
 		),
+		"GetPublications": fmt.Sprintf(
+			`SELECT %s
+                        FROM publication
+                        JOIN work ON publication.work_id=work.id`,
+			columns,
+		),
 	}
 }
 
@@ -100,29 +106,26 @@ func (s *Service) GetPublication(id int) (*status.Status, *Publication) {
 	return status.New(status.OK, ""), pub
 }
 
-// GetMany retrieves the entire list of publications from the database.
-// func GetMany(db *postgres.DB) (Publications, error) {
-// 	query := fmt.Sprintf(
-// 		`SELECT %s
-//                 FROM publication
-//                 JOIN work ON publication.work_id=work.id`,
-// 		columns,
-// 	)
-// 	rows, err := db.Query(query)
-// 	if err != nil {
-// 		return Publications{}, err
-// 	}
+// GetPublications retrieves the entire list of publications from the database.
+func (s *Service) GetPublications() (*status.Status, Publications) {
+	db := s.DB
+	getPublications := s.QueryMap()["GetPublications"]
 
-// 	var publications Publications = Publications{}
-// 	for rows.Next() {
-// 		publication, err := getPublication(rows)
-// 		if err != nil {
-// 			return Publications{}, err
-// 		}
-// 		publications = append(publications, publication)
-// 	}
-// 	return publications, nil
-// }
+	rows, err := db.Query(getPublications)
+	if err != nil {
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+
+	publications := Publications{}
+	for rows.Next() {
+		pub, err := s.getPublication(rows)
+		if err != nil {
+			return status.New(status.InternalServerError, err.Error()), nil
+		}
+		publications = append(publications, *pub)
+	}
+	return status.New(status.OK, ""), publications
+}
 
 // PatchOne updates the entry in the database matching the given ID
 // with the attributes passed in the request body.

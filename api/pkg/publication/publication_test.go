@@ -10,6 +10,81 @@ import (
 	"github.com/andrewzulaybar/books/api/pkg/work"
 )
 
+var pubs publication.Publications = publication.Publications{
+	{
+		1,
+		"2019-04-16T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
+		"1984822179",
+		"9781984822178",
+		"English",
+		288,
+		"Hogarth",
+		work.Work{},
+	},
+	{
+		2,
+		"2017-09-12T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/91twTG-CQ8L.jpg",
+		"0735224293",
+		"9780735224292",
+		"English",
+		352,
+		"Penguin Press",
+		work.Work{},
+	},
+	{
+		3,
+		"2018-08-14T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/51j5p18mJNL.jpg",
+		"0735219095",
+		"9780735219090",
+		"English",
+		384,
+		"G.P. Putnam's Sons",
+		work.Work{},
+	},
+	{
+		4,
+		"2004-09-30T00:00:00Z",
+		"Paperback",
+		"https://images-na.ssl-images-amazon.com/images/I/81af+MCATTL.jpg",
+		"0743273567",
+		"9780743273565",
+		"English",
+		180,
+		"Scribner",
+		work.Work{},
+	},
+	{
+		5,
+		"2020-01-21T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/81iVsj91eQL.jpg",
+		"1250209765",
+		"9781250209764",
+		"English",
+		400,
+		"Flatiron Books",
+		work.Work{},
+	},
+	{
+		6,
+		"2018-09-16T00:00:00Z",
+		"Hardcover",
+		"https://images-na.ssl-images-amazon.com/images/I/91Xq+S+F2jL.jpg",
+		"0735211299",
+		"9780735211292",
+		"English",
+		320,
+		"Avery",
+		work.Work{},
+	},
+}
+
 func getDB() *postgres.DB {
 	conf, err := config.Load("../../config/test.env")
 	if err != nil {
@@ -127,9 +202,9 @@ func TestDeletePublications(t *testing.T) {
 			if code := s.Code(); code != exp.code {
 				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
 			}
-			for i, val := range exp.ids {
-				if ids[i] != val {
-					t.Errorf("\nExpected: %d\nActual: %d\n", val, ids[i])
+			for i, id := range ids {
+				if id != exp.ids[i] {
+					t.Errorf("\nExpected: %d\nActual: %d\n", exp.ids[i], id)
 				}
 			}
 		})
@@ -147,19 +222,6 @@ func TestGetPublication(t *testing.T) {
 		pub  *publication.Publication
 	}
 
-	pub := &publication.Publication{
-		1,
-		"2019-04-16T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
-		"1984822179",
-		"9781984822178",
-		"English",
-		288,
-		"Hogarth",
-		work.Work{},
-	}
-
 	cases := []struct {
 		name     string
 		id       int
@@ -170,7 +232,7 @@ func TestGetPublication(t *testing.T) {
 			1,
 			Expected{
 				code: status.OK,
-				pub:  pub,
+				pub:  &pubs[0],
 			},
 		},
 		{
@@ -200,4 +262,43 @@ func TestGetPublication(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetPublications(t *testing.T) {
+	db := getDB()
+	defer db.Disconnect()
+
+	p := &publication.Service{DB: *db}
+
+	type Expected struct {
+		code int
+		pubs publication.Publications
+	}
+
+	c := struct {
+		name     string
+		expected Expected
+	}{
+		"AllPublications",
+		Expected{
+			code: status.OK,
+			pubs: pubs,
+		},
+	}
+
+	exp := c.expected
+	t.Run(c.name, func(t *testing.T) {
+		s, pubs := p.GetPublications()
+		if code := s.Code(); code != exp.code {
+			t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+		}
+		if pubs != nil {
+			for i, pub := range pubs {
+				pub.Work = work.Work{}
+				if pub != exp.pubs[i] {
+					t.Errorf("\nExpected: %v\nActual: %v\n", exp.pubs[i], pub)
+				}
+			}
+		}
+	})
 }

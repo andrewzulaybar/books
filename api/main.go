@@ -102,12 +102,26 @@ func publicationHandler(p *publication.Service) http.HandlerFunc {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(s.Code())
 			w.Write(bytes)
-		// case http.MethodPatch:
-		// 	if err := publication.PatchOne(db, r.Body, ID); err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	w.WriteHeader(http.StatusNoContent)
+		case http.MethodPatch:
+			var pub publication.Publication
+			pub.ID = id
+			if err := json.NewDecoder(r.Body).Decode(&pub); err != nil {
+				http.Error(w, err.Error(), status.InternalServerError)
+				return
+			}
+			s, updated := p.PatchPublication(&pub)
+			if s.Err() != nil {
+				http.Error(w, s.Message(), s.Code())
+				return
+			}
+			bytes, err := json.Marshal(*updated)
+			if err != nil {
+				http.Error(w, err.Error(), status.InternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(s.Code())
+			w.Write(bytes)
 		case http.MethodDelete:
 			s := p.DeletePublication(id)
 			if s.Err() != nil {

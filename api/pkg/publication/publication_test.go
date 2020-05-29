@@ -302,3 +302,150 @@ func TestGetPublications(t *testing.T) {
 		}
 	})
 }
+
+func TestPatchPublication(t *testing.T) {
+	db := getDB()
+	defer db.Disconnect()
+
+	p := &publication.Service{DB: *db}
+
+	type Expected struct {
+		code    int
+		pub     publication.Publication
+		updated publication.Publication
+	}
+
+	cases := []struct {
+		name     string
+		expected Expected
+	}{
+		{
+			"PatchEditionPubDate",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:             1,
+					EditionPubDate: "1900-01-01T00:00:00Z",
+				},
+				updated: func() publication.Publication {
+					pubs[0].EditionPubDate = "1900-01-01T00:00:00Z"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchFormat",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:     1,
+					Format: "Paperback",
+				},
+				updated: func() publication.Publication {
+					pubs[0].Format = "Paperback"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchImageURL",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:       1,
+					ImageURL: "https://example.com",
+				},
+				updated: func() publication.Publication {
+					pubs[0].ImageURL = "https://example.com"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchISBN",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:   1,
+					ISBN: "0123456789",
+				},
+				updated: func() publication.Publication {
+					pubs[0].ISBN = "0123456789"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchISBN13",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:     1,
+					ISBN13: "0123456789012",
+				},
+				updated: func() publication.Publication {
+					pubs[0].ISBN13 = "0123456789012"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchLanguage",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:       1,
+					Language: "French",
+				},
+				updated: func() publication.Publication {
+					pubs[0].Language = "French"
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchNumPages",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:       1,
+					NumPages: 100,
+				},
+				updated: func() publication.Publication {
+					pubs[0].NumPages = 100
+					return pubs[0]
+				}(),
+			},
+		},
+		{
+			"PatchPublisher",
+			Expected{
+				code: status.OK,
+				pub: publication.Publication{
+					ID:        1,
+					Publisher: "Penguin",
+				},
+				updated: func() publication.Publication {
+					pubs[0].Publisher = "Penguin"
+					return pubs[0]
+				}(),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, pub := p.PatchPublication(&exp.pub)
+			if code := s.Code(); code != exp.code {
+				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			}
+			if pub != nil {
+				pub.Work = work.Work{}
+				if *pub != exp.updated {
+					t.Errorf("\nExpected: %v\nActual: %v\n", exp.updated, *pub)
+				}
+			}
+		})
+	}
+}

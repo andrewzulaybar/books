@@ -11,6 +11,7 @@ import (
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/status"
+	"github.com/andrewzulaybar/books/api/pkg/work"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -24,6 +25,7 @@ func publicationsHandler(p *publication.Service) http.HandlerFunc {
 				http.Error(w, s.Message(), s.Code())
 				return
 			}
+
 			bytes, err := json.Marshal(pubs)
 			if err != nil {
 				http.Error(w, err.Error(), status.InternalServerError)
@@ -32,20 +34,27 @@ func publicationsHandler(p *publication.Service) http.HandlerFunc {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(s.Code())
 			w.Write(bytes)
-		// case http.MethodPost:
-		// 	publication, err := publication.PostOne(db, r.Body)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	bytes, err := json.Marshal(publication)
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		// 		return
-		// 	}
-		// 	w.Header().Set("Content-Type", "application/json")
-		// 	w.WriteHeader(http.StatusCreated)
-		// 	w.Write(bytes)
+		case http.MethodPost:
+			var pub publication.Publication
+			if err := json.NewDecoder(r.Body).Decode(&pub); err != nil {
+				http.Error(w, err.Error(), status.UnprocessableEntity)
+				return
+			}
+
+			s, new := p.PostPublication(&pub)
+			if s.Err() != nil {
+				http.Error(w, s.Message(), s.Code())
+				return
+			}
+
+			bytes, err := json.Marshal(*new)
+			if err != nil {
+				http.Error(w, err.Error(), status.InternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(s.Code())
+			w.Write(bytes)
 		case http.MethodDelete:
 			type identifiers struct {
 				IDs []int `json:"ids"`
@@ -94,6 +103,7 @@ func publicationHandler(p *publication.Service) http.HandlerFunc {
 				http.Error(w, s.Message(), s.Code())
 				return
 			}
+
 			bytes, err := json.Marshal(*pub)
 			if err != nil {
 				http.Error(w, err.Error(), status.InternalServerError)
@@ -109,11 +119,13 @@ func publicationHandler(p *publication.Service) http.HandlerFunc {
 				http.Error(w, err.Error(), status.InternalServerError)
 				return
 			}
+
 			s, updated := p.PatchPublication(&pub)
 			if s.Err() != nil {
 				http.Error(w, s.Message(), s.Code())
 				return
 			}
+
 			bytes, err := json.Marshal(*updated)
 			if err != nil {
 				http.Error(w, err.Error(), status.InternalServerError)
@@ -142,7 +154,11 @@ func main() {
 	db := postgres.Setup(conf.ConnectionString, "internal/sql/")
 	defer db.Disconnect()
 
-	p := &publication.Service{DB: *db}
+	w := &work.Service{DB: *db}
+	p := &publication.Service{
+		DB:          *db,
+		WorkService: *w,
+	}
 
 	r := mux.NewRouter()
 	API := r.PathPrefix("/api").Subrouter()

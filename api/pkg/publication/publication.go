@@ -10,8 +10,18 @@ import (
 	"github.com/andrewzulaybar/books/api/pkg/work"
 )
 
-const columns string = `publication.id, edition_pub_date, format, image_url, isbn, isbn13, language, num_pages,
-        publisher, work.id, author_id, description, initial_pub_date, original_language, title`
+// Columns is the comma-separated list of columns found in the publication table.
+const Columns string = "edition_pub_date, format, image_url, isbn, isbn13, language, num_pages, publisher, work_id"
+
+// Enum constants representing types of SQL statements.
+const (
+	Unknown postgres.Query = iota
+	DeletePublication
+	GetPublication
+	GetPublications
+	PatchPublication
+	PostPublication
+)
 
 // Publication represents a specific edition of a work.
 type Publication struct {
@@ -30,80 +40,72 @@ type Publication struct {
 // Publications represents a list of publications.
 type Publications []Publication
 
-// Service wraps the database.
+// Service wraps the database and other dependencies.
 type Service struct {
 	DB postgres.DB
+
+	WorkService work.Service
 }
 
-// QueryMap returns a map of the SQL queries to be used within this service.
-func (s Service) QueryMap() map[string]interface{} {
-	return map[string]interface{}{
-		"DeletePublication": `DELETE FROM publication WHERE id = $1`,
-		"GetPublication": fmt.Sprintf(
-			`SELECT %s
+// Query returns a SQL statement based on the postgres.Query value passed in.
+func (s *Service) Query(query postgres.Query, args ...interface{}) string {
+	switch query {
+	case DeletePublication:
+		return "DELETE FROM publication WHERE id = $1"
+	case GetPublication:
+		return fmt.Sprintf(
+			`SELECT publication.id, %s, %s
                         FROM publication
                         JOIN work ON publication.work_id=work.id
                         WHERE publication.id = $1`,
-			columns,
-		),
-		"GetPublications": fmt.Sprintf(
-			`SELECT %s
+			Columns,
+			work.Columns,
+		)
+	case GetPublications:
+		return fmt.Sprintf(
+			`SELECT publication.id, %s, %s
                         FROM publication
                         JOIN work ON publication.work_id=work.id`,
-			columns,
-		),
-		"PatchPublication": func(p map[string]interface{}) string {
-			var hasUpdate bool
-			query := "UPDATE publication SET "
-			for column, value := range p {
-				switch value.(type) {
-				case string:
-					if value != "" {
-						query += fmt.Sprintf("%s = '%s',", column, value)
-						hasUpdate = true
-					}
-				case int:
-					if value != 0 {
-						query += fmt.Sprintf("%s = %d,", column, value)
-						hasUpdate = true
-					}
+			Columns,
+			work.Columns,
+		)
+	case PatchPublication:
+		var hasUpdate bool
+		query := "UPDATE publication SET "
+		for column, value := range args[0].(map[string]interface{}) {
+			switch value.(type) {
+			case string:
+				if value != "" {
+					query += fmt.Sprintf("%s = '%s',", column, value)
+					hasUpdate = true
+				}
+			case int:
+				if value != 0 {
+					query += fmt.Sprintf("%s = %d,", column, value)
+					hasUpdate = true
 				}
 			}
-			if hasUpdate {
-				return strings.TrimSuffix(query, ",") + " WHERE id = $1"
-			}
-			return ""
-		},
-		"PatchWork": func(w map[string]interface{}) string {
-			var hasUpdate bool
-			query := "UPDATE work SET "
-			for column, value := range w {
-				switch value.(type) {
-				case string:
-					if value != "" {
-						query += fmt.Sprintf("%s = '%s',", column, value)
-						hasUpdate = true
-					}
-				case int:
-					if value != 0 {
-						query += fmt.Sprintf("%s = %d,", column, value)
-						hasUpdate = true
-					}
-				}
-			}
-			if hasUpdate {
-				return strings.TrimSuffix(query, ",") +
-					" WHERE id = (SELECT work_id FROM publication WHERE id = $1)"
-			}
-			return ""
-		},
+		}
+		if hasUpdate {
+			return strings.TrimSuffix(query, ",") + " WHERE id = $1"
+		}
+		return ""
+	case PostPublication:
+		return fmt.Sprintf(
+			`INSERT INTO publication (%s)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        RETURNING id`,
+			Columns,
+		)
+	default:
+		return ""
 	}
 }
 
 // DeletePublication removes the entry in the publication table matching the given id.
 func (s *Service) DeletePublication(id int) *status.Status {
 	db := s.DB
-	deletePublication := s.QueryMap()["DeletePublication"].(string)
+	deletePublication := s.Query(DeletePublication)
 
 	res, err := db.Exec(deletePublication, id)
 	if err != nil {
@@ -139,7 +141,7 @@ func (s *Service) DeletePublications(ids []int) (*status.Status, []int) {
 // GetPublication retrieves the publication from the database matching the given ID.
 func (s *Service) GetPublication(id int) (*status.Status, *Publication) {
 	db := s.DB
-	getPublication := s.QueryMap()["GetPublication"].(string)
+	getPublication := s.Query(GetPublication)
 
 	row := db.QueryRow(getPublication, id)
 	pub, err := s.getPublication(row)
@@ -155,7 +157,7 @@ func (s *Service) GetPublication(id int) (*status.Status, *Publication) {
 // GetPublications retrieves the entire list of publications from the database.
 func (s *Service) GetPublications() (*status.Status, Publications) {
 	db := s.DB
-	getPublications := s.QueryMap()["GetPublications"].(string)
+	getPublications := s.Query(GetPublications)
 
 	rows, err := db.Query(getPublications)
 	if err != nil {
@@ -173,37 +175,58 @@ func (s *Service) GetPublications() (*status.Status, Publications) {
 	return status.New(status.OK, ""), publications
 }
 
-// PatchPublication updates the entry in the database matching the given ID
-// with the attributes passed in the request body.
+// PatchPublication updates the entry in the database matching pub.id with the given attributes.
 func (s *Service) PatchPublication(pub *Publication) (*status.Status, *Publication) {
-	if err := s.updateWork(pub); err != nil {
-		return status.New(status.UnprocessableEntity, err.Error()), nil
+	stat, _ := s.WorkService.PatchWork(&pub.Work)
+	if err := stat.Err(); err != nil {
+		return status.New(stat.Code(), stat.Message()), nil
 	}
 
-	if err := s.updatePublication(pub); err != nil {
-		return status.New(status.UnprocessableEntity, err.Error()), nil
+	db := s.DB
+	p := map[string]interface{}{
+		"edition_pub_date": pub.EditionPubDate,
+		"format":           pub.Format,
+		"image_url":        pub.ImageURL,
+		"isbn":             pub.ISBN,
+		"isbn13":           pub.ISBN13,
+		"language":         pub.Language,
+		"num_pages":        pub.NumPages,
+		"publisher":        pub.Publisher,
 	}
 
+	patchPublication := s.Query(PatchPublication, p)
+	if patchPublication != "" {
+		if _, err := db.Exec(patchPublication, pub.ID); err != nil {
+			return status.New(status.UnprocessableEntity, err.Error()), nil
+		}
+	}
 	return s.GetPublication(pub.ID)
 }
 
-// PostOne creates a publication from the properties in the request body.
-// func PostOne(db *postgres.DB, body io.Reader) (*Publication, error) {
-// 	var publication Publication
-// 	if err := json.NewDecoder(body).Decode(&publication); err != nil {
-// 		return nil, err
-// 	}
+// PostPublication creates an entry in the publication table with the given attributes.
+func (s *Service) PostPublication(pub *Publication) (*status.Status, *Publication) {
+	stat, _ := s.WorkService.PostWork(&pub.Work)
+	if err := stat.Err(); err != nil {
+		return status.New(stat.Code(), stat.Message()), nil
+	}
 
-// 	if err := postWork(db, &publication); err != nil {
-// 		return nil, err
-// 	}
-
-// 	if err := postPublication(db, &publication); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &publication, nil
-// }
+	db := s.DB
+	if err := db.QueryRow(
+		s.Query(PostPublication),
+		pub.EditionPubDate,
+		pub.Format,
+		pub.ImageURL,
+		pub.ISBN,
+		pub.ISBN13,
+		pub.Language,
+		pub.NumPages,
+		pub.Publisher,
+		pub.Work.ID,
+	).Scan(&(pub.ID)); err != nil {
+		return status.New(status.UnprocessableEntity, err.Error()), nil
+	}
+	return status.New(status.Created, ""), pub
+}
 
 func (s *Service) getPublication(row interface {
 	Scan(dest ...interface{}) error
@@ -227,84 +250,4 @@ func (s *Service) getPublication(row interface {
 		&pub.Work.Title,
 	)
 	return &pub, err
-}
-
-// func postPublication(db *postgres.DB, publication *Publication) error {
-// 	row := db.QueryRow(
-// 		`INSERT INTO publication
-//                         (edition_pub_date, format, image_url, isbn, isbn13,
-//                                 language, num_pages, publisher, work_id)
-//                 VALUES
-//                         ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-//                 RETURNING id`,
-// 		publication.EditionPubDate,
-// 		publication.Format,
-// 		publication.ImageURL,
-// 		publication.ISBN,
-// 		publication.ISBN13,
-// 		publication.Language,
-// 		publication.NumPages,
-// 		publication.Publisher,
-// 		publication.WorkID,
-// 	)
-// 	return row.Scan(&(publication.ID))
-// }
-
-// func postWork(db *postgres.DB, publication *Publication) error {
-// 	row := db.QueryRow(
-// 		`INSERT INTO work
-//                         (author, description, initial_pub_date, original_language, title)
-//                 VALUES
-//                         ($1, $2, $3, $4, $5)
-//                 RETURNING id`,
-// 		publication.Author,
-// 		publication.Description,
-// 		publication.InitialPubDate,
-// 		publication.OriginalLanguage,
-// 		publication.Title,
-// 	)
-// 	return row.Scan(&(publication.WorkID))
-// }
-
-func (s *Service) updatePublication(pub *Publication) error {
-	db := s.DB
-
-	p := map[string]interface{}{
-		"edition_pub_date": pub.EditionPubDate,
-		"format":           pub.Format,
-		"image_url":        pub.ImageURL,
-		"isbn":             pub.ISBN,
-		"isbn13":           pub.ISBN13,
-		"language":         pub.Language,
-		"num_pages":        pub.NumPages,
-		"publisher":        pub.Publisher,
-	}
-
-	queryBuilder := s.QueryMap()["PatchPublication"]
-	if patchPublication := queryBuilder.(func(map[string]interface{}) string)(p); patchPublication != "" {
-		if _, err := db.Exec(patchPublication, pub.ID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) updateWork(pub *Publication) error {
-	db := s.DB
-
-	w := map[string]interface{}{
-		"author_id":         pub.Work.AuthorID,
-		"description":       pub.Work.Description,
-		"initial_pub_date":  pub.Work.InitialPubDate,
-		"original_language": pub.Work.OriginalLanguage,
-		"title":             pub.Work.Title,
-	}
-
-	queryBuilder := s.QueryMap()["PatchWork"]
-	if patchWork := queryBuilder.(func(map[string]interface{}) string)(w); patchWork != "" {
-		if _, err := db.Exec(patchWork, pub.ID); err != nil {
-			return err
-		}
-	}
-	return nil
 }

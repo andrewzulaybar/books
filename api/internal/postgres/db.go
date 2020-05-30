@@ -18,6 +18,9 @@ var tables []string = []string{
 // DB wraps our SQL database.
 type DB struct{ *sql.DB }
 
+// Query is used together with the Service.Query method to retrieve pre-defined queries.
+type Query int
+
 // Connect creates a pool of connections to the database
 // and initializes the db on the receiver.
 func (db *DB) Connect(params string) error {

@@ -21,7 +21,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		288,
 		"Hogarth",
-		work.Work{},
+		work.Work{
+			ID: 1,
+		},
 	},
 	{
 		2,
@@ -33,7 +35,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		352,
 		"Penguin Press",
-		work.Work{},
+		work.Work{
+			ID: 2,
+		},
 	},
 	{
 		3,
@@ -45,7 +49,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		384,
 		"G.P. Putnam's Sons",
-		work.Work{},
+		work.Work{
+			ID: 3,
+		},
 	},
 	{
 		4,
@@ -57,7 +63,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		180,
 		"Scribner",
-		work.Work{},
+		work.Work{
+			ID: 4,
+		},
 	},
 	{
 		5,
@@ -69,7 +77,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		400,
 		"Flatiron Books",
-		work.Work{},
+		work.Work{
+			ID: 5,
+		},
 	},
 	{
 		6,
@@ -81,7 +91,9 @@ var pubs publication.Publications = publication.Publications{
 		"English",
 		320,
 		"Avery",
-		work.Work{},
+		work.Work{
+			ID: 6,
+		},
 	},
 }
 
@@ -253,7 +265,7 @@ func TestGetPublication(t *testing.T) {
 				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
 			}
 			if exp.pub != nil && pub != nil {
-				pub.Work = work.Work{}
+				pub.Work = work.Work{ID: pub.Work.ID}
 				if *exp.pub != *pub {
 					t.Errorf("\nExpected: %v\nActual: %v\n", *exp.pub, *pub)
 				}
@@ -294,7 +306,7 @@ func TestGetPublications(t *testing.T) {
 		}
 		if pubs != nil {
 			for i, pub := range pubs {
-				pub.Work = work.Work{}
+				pub.Work = work.Work{ID: pub.Work.ID}
 				if pub != exp.pubs[i] {
 					t.Errorf("\nExpected: %v\nActual: %v\n", exp.pubs[i], pub)
 				}
@@ -307,7 +319,11 @@ func TestPatchPublication(t *testing.T) {
 	db := getDB()
 	defer db.Disconnect()
 
-	p := &publication.Service{DB: *db}
+	w := &work.Service{DB: *db}
+	p := &publication.Service{
+		DB:          *db,
+		WorkService: *w,
+	}
 
 	type Expected struct {
 		code    int
@@ -441,9 +457,95 @@ func TestPatchPublication(t *testing.T) {
 				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
 			}
 			if pub != nil {
-				pub.Work = work.Work{}
+				pub.Work = work.Work{ID: pub.Work.ID}
 				if *pub != exp.updated {
 					t.Errorf("\nExpected: %v\nActual: %v\n", exp.updated, *pub)
+				}
+			}
+		})
+	}
+}
+
+func TestPostPublication(t *testing.T) {
+	db := getDB()
+	defer db.Disconnect()
+
+	w := &work.Service{DB: *db}
+	p := &publication.Service{
+		DB:          *db,
+		WorkService: *w,
+	}
+
+	p.DeletePublications([]int{1, 2, 3, 4, 5, 6})
+
+	type Expected struct {
+		code int
+		pub  publication.Publication
+	}
+
+	cases := []struct {
+		name     string
+		expected Expected
+	}{
+		{
+			"AllFieldsValid",
+			Expected{
+				code: status.Created,
+				pub:  pubs[0],
+			},
+		},
+		{
+			"DuplicateImageURL",
+			Expected{
+				code: status.UnprocessableEntity,
+				pub: func() publication.Publication {
+					pubs[1].ImageURL = pubs[0].ImageURL
+					return pubs[1]
+				}(),
+			},
+		},
+		{
+			"DuplicateISBN",
+			Expected{
+				code: status.UnprocessableEntity,
+				pub: func() publication.Publication {
+					pubs[2].ISBN = pubs[0].ISBN
+					return pubs[2]
+				}(),
+			},
+		},
+		{
+			"DuplicateISBN13",
+			Expected{
+				code: status.UnprocessableEntity,
+				pub: func() publication.Publication {
+					pubs[3].ISBN13 = pubs[0].ISBN13
+					return pubs[3]
+				}(),
+			},
+		},
+		{
+			"PublicationOfExistingWork",
+			Expected{
+				code: status.Created,
+				pub: func() publication.Publication {
+					pubs[4].Work.ID = 1
+					return pubs[4]
+				}(),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, pub := p.PostPublication(&exp.pub)
+			if code := s.Code(); code != exp.code {
+				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			}
+			if pub != nil {
+				if *pub != exp.pub {
+					t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, *pub)
 				}
 			}
 		})

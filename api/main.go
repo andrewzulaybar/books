@@ -12,6 +12,7 @@ import (
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/pkg/work"
+	"github.com/andrewzulaybar/books/api/test/data"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -151,14 +152,16 @@ func main() {
 		panic(err)
 	}
 
-	db := postgres.Setup(conf.ConnectionString, "internal/sql/")
-	defer db.Disconnect()
+	db, dc := postgres.Setup(conf.ConnectionString, "internal/sql/")
+	defer dc()
 
 	w := &work.Service{DB: *db}
 	p := &publication.Service{
 		DB:          *db,
 		WorkService: *w,
 	}
+
+	data.LoadWorks(w)
 
 	r := mux.NewRouter()
 	API := r.PathPrefix("/api").Subrouter()

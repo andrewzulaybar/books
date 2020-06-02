@@ -97,7 +97,9 @@ var pubs publication.Publications = publication.Publications{
 	},
 }
 
-func getDB() *postgres.DB {
+func getDB(t *testing.T) (*postgres.DB, func()) {
+	t.Helper()
+
 	conf, err := config.Load("../../config/test.env")
 	if err != nil {
 		panic(err)
@@ -107,8 +109,8 @@ func getDB() *postgres.DB {
 }
 
 func TestDeletePublication(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	p := &publication.Service{DB: *db}
 
@@ -150,8 +152,8 @@ func TestDeletePublication(t *testing.T) {
 }
 
 func TestDeletePublications(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	p := &publication.Service{DB: *db}
 
@@ -224,8 +226,8 @@ func TestDeletePublications(t *testing.T) {
 }
 
 func TestGetPublication(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	p := &publication.Service{DB: *db}
 
@@ -277,8 +279,8 @@ func TestGetPublication(t *testing.T) {
 }
 
 func TestGetPublications(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	p := &publication.Service{DB: *db}
 
@@ -316,8 +318,8 @@ func TestGetPublications(t *testing.T) {
 }
 
 func TestPatchPublication(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	w := &work.Service{DB: *db}
 	p := &publication.Service{
@@ -467,8 +469,8 @@ func TestPatchPublication(t *testing.T) {
 }
 
 func TestPostPublication(t *testing.T) {
-	db := getDB()
-	defer db.Disconnect()
+	db, dc := getDB(t)
+	defer dc()
 
 	w := &work.Service{DB: *db}
 	p := &publication.Service{

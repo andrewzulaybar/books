@@ -21,8 +21,7 @@ type DB struct{ *sql.DB }
 // Query is used together with the Service.Query method to retrieve pre-defined queries.
 type Query int
 
-// Connect creates a pool of connections to the database
-// and initializes the db on the receiver.
+// Connect creates a pool of connections to the database and initializes the db on the receiver.
 func (db *DB) Connect(params string) error {
 	database, err := sql.Open("postgres", params)
 	if err != nil {
@@ -59,9 +58,9 @@ func (db *DB) Init(dirPath string) error {
 	return nil
 }
 
-// Setup creates a new DB instance and returns it
-// after successfully connecting and initializing the database.
-func Setup(params string, sqlDirPath string) *DB {
+// Setup creates a new DB instance and returns it after successfully connecting
+// and initializing the database. It also returns a closure function for easy cleanup.
+func Setup(params string, sqlDirPath string) (*DB, func()) {
 	db := new(DB)
 
 	if err := db.Connect(params); err != nil {
@@ -72,7 +71,7 @@ func Setup(params string, sqlDirPath string) *DB {
 		panic(err)
 	}
 
-	return db
+	return db, func() { db.Disconnect() }
 }
 
 func getFilePaths(dirPath string) []string {

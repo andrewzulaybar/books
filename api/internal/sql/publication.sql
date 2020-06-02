@@ -10,7 +10,7 @@ CREATE TABLE publication
     num_pages INTEGER NOT NULL,
     publisher VARCHAR (100) NOT NULL,
     work_id INTEGER NOT NULL,
-    FOREIGN KEY (work_id) REFERENCES work (id)
+    FOREIGN KEY (work_id) REFERENCES work (id) ON DELETE CASCADE
 );
 
 INSERT INTO publication

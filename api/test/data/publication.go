@@ -1,22 +1,16 @@
 package data
 
 import (
-	"encoding/json"
-
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 )
 
 // GetPublications reads the test data in `publication.json` and returns it.
 func GetPublications(_ *publication.Service) publication.Publications {
-	bytes := readFile("publication.json")
-
-	var pubs struct {
+	var buf struct {
 		Publications publication.Publications `json:"publications"`
 	}
-	if err := json.Unmarshal(bytes, &pubs); err != nil {
-		panic(err)
-	}
-	return pubs.Publications
+	loadBuffer(&buf, "publication.json")
+	return buf.Publications
 }
 
 // LoadPublications reads the test data in `publication.json` and loads it into the database.

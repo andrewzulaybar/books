@@ -8,6 +8,7 @@ import (
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/handlers"
+	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/work"
 	"github.com/andrewzulaybar/books/api/test/data"
@@ -24,12 +25,14 @@ func main() {
 	db, dc := postgres.Setup(conf.ConnectionString, "internal/sql/")
 	defer dc()
 
+	l := &location.Service{DB: *db}
 	w := &work.Service{DB: *db}
 	p := &publication.Service{
 		DB:          *db,
 		WorkService: *w,
 	}
 
+	data.LoadLocations(l)
 	data.LoadWorks(w)
 	data.LoadPublications(p)
 

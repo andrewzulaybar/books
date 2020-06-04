@@ -353,7 +353,7 @@ func TestPostWork(t *testing.T) {
 	defer dc()
 
 	w := &work.Service{DB: *db}
-	works := data.GetWorks(w)
+	works := data.GetWorks()
 
 	type Expected struct {
 		status *status.Status

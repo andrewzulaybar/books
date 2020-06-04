@@ -1,0 +1,54 @@
+{
+  "locations": [
+    {
+      "city": "Vancouver",
+      "region": "British Columbia",
+      "country": "Canada"
+    },
+    {
+      "city": "Toronto",
+      "region": "Ontario",
+      "country": "Canada"
+    },
+    {
+      "city": "Montreal",
+      "region": "Quebec",
+      "country": "Canada"
+    },
+    {
+      "city": "Castlebar",
+      "region": "County Mayo",
+      "country": "Ireland"
+    },
+    {
+      "city": "Rota",
+      "region": "Andalusia",
+      "country": "Spain"
+    },
+    {
+      "city": "ThomasVille",
+      "region": "Georgia",
+      "country": "USA"
+    },
+    {
+      "city": "Saint Paul",
+      "region": "Minnesota",
+      "country": "USA"
+    },
+    {
+      "city": "New York City",
+      "region": "New York",
+      "country": "USA"
+    },
+    {
+      "city": "Hamilton",
+      "region": "Ohio",
+      "country": "USA"
+    },
+    {
+      "city": "Pittsburgh",
+      "region": "Pensylvannia",
+      "country": "USA"
+    }
+  ]
+}

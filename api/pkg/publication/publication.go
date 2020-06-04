@@ -8,6 +8,7 @@ import (
 	"github.com/andrewzulaybar/books/api/internal/postgres"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/pkg/work"
+	"github.com/lib/pq"
 )
 
 // Columns is the comma-separated list of columns found in the publication table.
@@ -65,7 +66,8 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 		return fmt.Sprintf(
 			`SELECT publication.id, %s, %s
                         FROM publication
-                        JOIN work ON publication.work_id=work.id`,
+                        JOIN work ON publication.work_id=work.id
+                        ORDER BY publication.id`,
 			Columns,
 			work.Columns,
 		)
@@ -223,6 +225,9 @@ func (s *Service) PostPublication(pub *Publication) (*status.Status, *Publicatio
 		pub.Publisher,
 		pub.Work.ID,
 	).Scan(&(pub.ID)); err != nil {
+		if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
+			return status.New(status.Conflict, err.Error()), nil
+		}
 		return status.New(status.UnprocessableEntity, err.Error()), nil
 	}
 	return status.New(status.Created, ""), pub

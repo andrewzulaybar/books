@@ -1,6 +1,7 @@
 package publication_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/andrewzulaybar/books/api/config"
@@ -8,93 +9,12 @@ import (
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/pkg/work"
+	"github.com/andrewzulaybar/books/api/test/data"
 )
 
-var pubs publication.Publications = publication.Publications{
-	{
-		1,
-		"2019-04-16T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
-		"1984822179",
-		"9781984822178",
-		"English",
-		288,
-		"Hogarth",
-		work.Work{
-			ID: 1,
-		},
-	},
-	{
-		2,
-		"2017-09-12T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/91twTG-CQ8L.jpg",
-		"0735224293",
-		"9780735224292",
-		"English",
-		352,
-		"Penguin Press",
-		work.Work{
-			ID: 2,
-		},
-	},
-	{
-		3,
-		"2018-08-14T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/51j5p18mJNL.jpg",
-		"0735219095",
-		"9780735219090",
-		"English",
-		384,
-		"G.P. Putnam's Sons",
-		work.Work{
-			ID: 3,
-		},
-	},
-	{
-		4,
-		"2004-09-30T00:00:00Z",
-		"Paperback",
-		"https://images-na.ssl-images-amazon.com/images/I/81af+MCATTL.jpg",
-		"0743273567",
-		"9780743273565",
-		"English",
-		180,
-		"Scribner",
-		work.Work{
-			ID: 4,
-		},
-	},
-	{
-		5,
-		"2020-01-21T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/81iVsj91eQL.jpg",
-		"1250209765",
-		"9781250209764",
-		"English",
-		400,
-		"Flatiron Books",
-		work.Work{
-			ID: 5,
-		},
-	},
-	{
-		6,
-		"2018-09-16T00:00:00Z",
-		"Hardcover",
-		"https://images-na.ssl-images-amazon.com/images/I/91Xq+S+F2jL.jpg",
-		"0735211299",
-		"9780735211292",
-		"English",
-		320,
-		"Avery",
-		work.Work{
-			ID: 6,
-		},
-	},
+type TestData struct {
+	GetWorks        func(*work.Service) work.Works
+	GetPublications func(*publication.Service) publication.Publications
 }
 
 func getDB(t *testing.T) (*postgres.DB, func()) {
@@ -108,44 +28,73 @@ func getDB(t *testing.T) (*postgres.DB, func()) {
 	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
 }
 
+func setup(t *testing.T, db *postgres.DB, td *TestData) (*publication.Service, publication.Publications) {
+	t.Helper()
+
+	w := &work.Service{DB: *db}
+	p := &publication.Service{
+		DB:          *db,
+		WorkService: *w,
+	}
+	works := td.GetWorks(w)
+	publications := td.GetPublications(p)
+
+	for i := range publications {
+		for j := range works {
+			if publications[i].Work.ID == works[j].ID {
+				publications[i].Work = works[j]
+			}
+		}
+	}
+
+	return p, publications
+}
+
 func TestDeletePublication(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	p := &publication.Service{DB: *db}
+	td := &TestData{data.LoadWorks, data.LoadPublications}
+	p, _ := setup(t, db, td)
+
+	type Expected struct {
+		status *status.Status
+	}
 
 	cases := []struct {
 		name     string
 		id       int
-		expected int
+		expected Expected
 	}{
 		{
-			name:     "NegativeId",
-			id:       -1,
-			expected: status.NotFound,
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.NoContent, ""),
+			},
 		},
 		{
-			name:     "ValidId",
-			id:       1,
-			expected: status.NoContent,
+			name: "AlreadyDeletedId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.NotFound, "Publication with id = 1 does not exist"),
+			},
 		},
 		{
-			name:     "AlreadyDeletedId",
-			id:       1,
-			expected: status.NotFound,
-		},
-		{
-			name:     "IdNotFound",
-			id:       1000000,
-			expected: status.NotFound,
+			name: "NegativeId",
+			id:   -1,
+			expected: Expected{
+				status: status.New(status.NotFound, "Publication with id = -1 does not exist"),
+			},
 		},
 	}
 
 	for _, c := range cases {
+		exp := c.expected
 		t.Run(c.name, func(t *testing.T) {
 			s := p.DeletePublication(c.id)
-			if code := s.Code(); code != c.expected {
-				t.Errorf("\nExpected: %d\nActual: %d\n", c.expected, code)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 			}
 		})
 	}
@@ -155,11 +104,12 @@ func TestDeletePublications(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	p := &publication.Service{DB: *db}
+	td := &TestData{data.LoadWorks, data.LoadPublications}
+	p, _ := setup(t, db, td)
 
 	type Expected struct {
-		code int
-		ids  []int
+		status *status.Status
+		ids    []int
 	}
 
 	cases := []struct {
@@ -171,40 +121,49 @@ func TestDeletePublications(t *testing.T) {
 			name: "OneId",
 			ids:  []int{1},
 			expected: Expected{
-				code: status.NoContent,
-				ids:  nil,
+				status: status.New(status.NoContent, ""),
+				ids:    nil,
 			},
 		},
 		{
 			name: "MultipleIds",
 			ids:  []int{2, 3, 4},
 			expected: Expected{
-				code: status.NoContent,
-				ids:  nil,
+				status: status.New(status.NoContent, ""),
+				ids:    nil,
 			},
 		},
 		{
 			name: "AlreadyDeletedIds",
 			ids:  []int{1, 2, 3},
 			expected: Expected{
-				code: status.OK,
-				ids:  []int{1, 2, 3},
+				status: status.New(
+					status.OK,
+					"The following publications could not be found: [1 2 3]",
+				),
+				ids: []int{1, 2, 3},
 			},
 		},
 		{
 			name: "IncludesIdNotFound",
 			ids:  []int{5, 6, -1},
 			expected: Expected{
-				code: status.OK,
-				ids:  []int{-1},
+				status: status.New(
+					status.OK,
+					"The following publications could not be found: [-1]",
+				),
+				ids: []int{-1},
 			},
 		},
 		{
 			name: "AllIdsNotFound",
 			ids:  []int{-1, -2, -3},
 			expected: Expected{
-				code: status.OK,
-				ids:  []int{-1, -2, -3},
+				status: status.New(
+					status.OK,
+					"The following publications could not be found: [-1 -2 -3]",
+				),
+				ids: []int{-1, -2, -3},
 			},
 		},
 	}
@@ -213,13 +172,11 @@ func TestDeletePublications(t *testing.T) {
 		exp := c.expected
 		t.Run(c.name, func(t *testing.T) {
 			s, ids := p.DeletePublications(c.ids)
-			if code := s.Code(); code != exp.code {
-				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 			}
-			for i, id := range ids {
-				if id != exp.ids[i] {
-					t.Errorf("\nExpected: %d\nActual: %d\n", exp.ids[i], id)
-				}
+			if !reflect.DeepEqual(exp.ids, ids) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.ids, ids)
 			}
 		})
 	}
@@ -229,11 +186,12 @@ func TestGetPublication(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	p := &publication.Service{DB: *db}
+	td := &TestData{data.LoadWorks, data.LoadPublications}
+	p, pubs := setup(t, db, td)
 
 	type Expected struct {
-		code int
-		pub  *publication.Publication
+		status *status.Status
+		pub    *publication.Publication
 	}
 
 	cases := []struct {
@@ -245,16 +203,16 @@ func TestGetPublication(t *testing.T) {
 			"ValidId",
 			1,
 			Expected{
-				code: status.OK,
-				pub:  &pubs[0],
+				status: status.New(status.OK, ""),
+				pub:    &pubs[0],
 			},
 		},
 		{
 			"InvalidId",
 			-1,
 			Expected{
-				code: status.NotFound,
-				pub:  nil,
+				status: status.New(status.NotFound, "Publication with id = -1 does not exist"),
+				pub:    nil,
 			},
 		},
 	}
@@ -263,15 +221,10 @@ func TestGetPublication(t *testing.T) {
 		exp := c.expected
 		t.Run(c.name, func(t *testing.T) {
 			s, pub := p.GetPublication(c.id)
-			if code := s.Code(); code != exp.code {
-				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 			}
-			if exp.pub != nil && pub != nil {
-				pub.Work = work.Work{ID: pub.Work.ID}
-				if *exp.pub != *pub {
-					t.Errorf("\nExpected: %v\nActual: %v\n", *exp.pub, *pub)
-				}
-			} else if exp.pub != pub {
+			if !reflect.DeepEqual(exp.pub, pub) {
 				t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, pub)
 			}
 		})
@@ -282,11 +235,12 @@ func TestGetPublications(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	p := &publication.Service{DB: *db}
+	td := &TestData{data.LoadWorks, data.LoadPublications}
+	p, pubs := setup(t, db, td)
 
 	type Expected struct {
-		code int
-		pubs publication.Publications
+		status *status.Status
+		pubs   publication.Publications
 	}
 
 	c := struct {
@@ -295,24 +249,19 @@ func TestGetPublications(t *testing.T) {
 	}{
 		"AllPublications",
 		Expected{
-			code: status.OK,
-			pubs: pubs,
+			status: status.New(status.OK, ""),
+			pubs:   pubs,
 		},
 	}
 
 	exp := c.expected
 	t.Run(c.name, func(t *testing.T) {
 		s, pubs := p.GetPublications()
-		if code := s.Code(); code != exp.code {
-			t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+		if !reflect.DeepEqual(exp.status, s) {
+			t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 		}
-		if pubs != nil {
-			for i, pub := range pubs {
-				pub.Work = work.Work{ID: pub.Work.ID}
-				if pub != exp.pubs[i] {
-					t.Errorf("\nExpected: %v\nActual: %v\n", exp.pubs[i], pub)
-				}
-			}
+		if !reflect.DeepEqual(exp.pubs, pubs) {
+			t.Errorf("\nExpected: %v\nActual: %v\n", exp.pubs, pubs)
 		}
 	})
 }
@@ -321,132 +270,105 @@ func TestPatchPublication(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	p := &publication.Service{
-		DB:          *db,
-		WorkService: *w,
-	}
+	td := &TestData{data.LoadWorks, data.LoadPublications}
+	p, _ := setup(t, db, td)
 
 	type Expected struct {
-		code    int
-		pub     publication.Publication
-		updated publication.Publication
+		status *status.Status
+		id     int
 	}
 
 	cases := []struct {
 		name     string
+		pub      *publication.Publication
 		expected Expected
 	}{
 		{
-			"PatchEditionPubDate",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:             1,
-					EditionPubDate: "1900-01-01T00:00:00Z",
-				},
-				updated: func() publication.Publication {
-					pubs[0].EditionPubDate = "1900-01-01T00:00:00Z"
-					return pubs[0]
-				}(),
+			name: "PatchEditionPubDate",
+			pub: &publication.Publication{
+				ID:             1,
+				EditionPubDate: "1900-01-01T00:00:00Z",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchFormat",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:     1,
-					Format: "Paperback",
-				},
-				updated: func() publication.Publication {
-					pubs[0].Format = "Paperback"
-					return pubs[0]
-				}(),
+			name: "PatchFormat",
+			pub: &publication.Publication{
+				ID:     1,
+				Format: "Paperback",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchImageURL",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:       1,
-					ImageURL: "https://example.com",
-				},
-				updated: func() publication.Publication {
-					pubs[0].ImageURL = "https://example.com"
-					return pubs[0]
-				}(),
+			name: "PatchImageURL",
+			pub: &publication.Publication{
+				ID:       1,
+				ImageURL: "https://example.com",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchISBN",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:   1,
-					ISBN: "0123456789",
-				},
-				updated: func() publication.Publication {
-					pubs[0].ISBN = "0123456789"
-					return pubs[0]
-				}(),
+			name: "PatchISBN",
+			pub: &publication.Publication{
+				ID:   1,
+				ISBN: "0123456789",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchISBN13",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:     1,
-					ISBN13: "0123456789012",
-				},
-				updated: func() publication.Publication {
-					pubs[0].ISBN13 = "0123456789012"
-					return pubs[0]
-				}(),
+			name: "PatchISBN13",
+			pub: &publication.Publication{
+				ID:     1,
+				ISBN13: "0123456789012",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchLanguage",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:       1,
-					Language: "French",
-				},
-				updated: func() publication.Publication {
-					pubs[0].Language = "French"
-					return pubs[0]
-				}(),
+			name: "PatchLanguage",
+			pub: &publication.Publication{
+				ID:       1,
+				Language: "French",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchNumPages",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:       1,
-					NumPages: 100,
-				},
-				updated: func() publication.Publication {
-					pubs[0].NumPages = 100
-					return pubs[0]
-				}(),
+			name: "PatchNumPages",
+			pub: &publication.Publication{
+				ID:       1,
+				NumPages: 100,
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 		{
-			"PatchPublisher",
-			Expected{
-				code: status.OK,
-				pub: publication.Publication{
-					ID:        1,
-					Publisher: "Penguin",
-				},
-				updated: func() publication.Publication {
-					pubs[0].Publisher = "Penguin"
-					return pubs[0]
-				}(),
+			name: "PatchPublisher",
+			pub: &publication.Publication{
+				ID:        1,
+				Publisher: "Penguin",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
 			},
 		},
 	}
@@ -454,15 +376,13 @@ func TestPatchPublication(t *testing.T) {
 	for _, c := range cases {
 		exp := c.expected
 		t.Run(c.name, func(t *testing.T) {
-			s, pub := p.PatchPublication(&exp.pub)
-			if code := s.Code(); code != exp.code {
-				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			s, pub := p.PatchPublication(c.pub)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 			}
-			if pub != nil {
-				pub.Work = work.Work{ID: pub.Work.ID}
-				if *pub != exp.updated {
-					t.Errorf("\nExpected: %v\nActual: %v\n", exp.updated, *pub)
-				}
+			_, want := p.GetPublication(exp.id)
+			if !reflect.DeepEqual(want, pub) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", want, pub)
 			}
 		})
 	}
@@ -472,68 +392,70 @@ func TestPostPublication(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	p := &publication.Service{
-		DB:          *db,
-		WorkService: *w,
-	}
-
-	p.DeletePublications([]int{1, 2, 3, 4, 5, 6})
+	td := &TestData{data.LoadWorks, data.GetPublications}
+	p, pubs := setup(t, db, td)
 
 	type Expected struct {
-		code int
-		pub  publication.Publication
+		status *status.Status
+		pub    *publication.Publication
 	}
 
 	cases := []struct {
 		name     string
+		pub      *publication.Publication
 		expected Expected
 	}{
 		{
-			"AllFieldsValid",
-			Expected{
-				code: status.Created,
-				pub:  pubs[0],
+			name: "AllFieldsValid",
+			pub:  &pubs[0],
+			expected: Expected{
+				status: status.New(status.Created, ""),
+				pub:    &pubs[0],
 			},
 		},
 		{
-			"DuplicateImageURL",
-			Expected{
-				code: status.UnprocessableEntity,
-				pub: func() publication.Publication {
-					pubs[1].ImageURL = pubs[0].ImageURL
-					return pubs[1]
-				}(),
+			name: "DuplicateImageURL",
+			pub: func() *publication.Publication {
+				pub := pubs[1]
+				pub.ImageURL = pubs[0].ImageURL
+				return &pub
+			}(),
+			expected: Expected{
+				status: status.New(
+					status.Conflict,
+					"pq: duplicate key value violates unique constraint \"publication_image_url_key\"",
+				),
+				pub: nil,
 			},
 		},
 		{
-			"DuplicateISBN",
-			Expected{
-				code: status.UnprocessableEntity,
-				pub: func() publication.Publication {
-					pubs[2].ISBN = pubs[0].ISBN
-					return pubs[2]
-				}(),
+			name: "DuplicateISBN",
+			pub: func() *publication.Publication {
+				pub := pubs[1]
+				pub.ISBN = pubs[0].ISBN
+				return &pub
+			}(),
+			expected: Expected{
+				status: status.New(
+					status.Conflict,
+					"pq: duplicate key value violates unique constraint \"publication_isbn_key\"",
+				),
+				pub: nil,
 			},
 		},
 		{
-			"DuplicateISBN13",
-			Expected{
-				code: status.UnprocessableEntity,
-				pub: func() publication.Publication {
-					pubs[3].ISBN13 = pubs[0].ISBN13
-					return pubs[3]
-				}(),
-			},
-		},
-		{
-			"PublicationOfExistingWork",
-			Expected{
-				code: status.Created,
-				pub: func() publication.Publication {
-					pubs[4].Work.ID = 1
-					return pubs[4]
-				}(),
+			name: "DuplicateISBN13",
+			pub: func() *publication.Publication {
+				pub := pubs[1]
+				pub.ISBN13 = pubs[0].ISBN13
+				return &pub
+			}(),
+			expected: Expected{
+				status: status.New(
+					status.Conflict,
+					"pq: duplicate key value violates unique constraint \"publication_isbn13_key\"",
+				),
+				pub: nil,
 			},
 		},
 	}
@@ -541,14 +463,12 @@ func TestPostPublication(t *testing.T) {
 	for _, c := range cases {
 		exp := c.expected
 		t.Run(c.name, func(t *testing.T) {
-			s, pub := p.PostPublication(&exp.pub)
-			if code := s.Code(); code != exp.code {
-				t.Errorf("\nExpected: %d\nActual: %d\n", exp.code, code)
+			s, pub := p.PostPublication(c.pub)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
 			}
-			if pub != nil {
-				if *pub != exp.pub {
-					t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, *pub)
-				}
+			if !reflect.DeepEqual(exp.pub, pub) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, pub)
 			}
 		})
 	}

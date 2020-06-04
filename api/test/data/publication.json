@@ -1,0 +1,82 @@
+{
+  "publications": [
+    {
+      "editionPubDate": "2019-04-16T00:00:00Z",
+      "format": "Hardcover",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/81X4R7QhFkL.jpg",
+      "isbn": "1984822179",
+      "isbn13": "9781984822178",
+      "language": "English",
+      "numPages": 288,
+      "publisher": "Hogarth",
+      "work": {
+        "id": 1
+      }
+    },
+    {
+      "editionPubDate": "2017-09-12T00:00:00Z",
+      "format": "Hardcover",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/91twTG-CQ8L.jpg",
+      "isbn": "0735224293",
+      "isbn13": "9780735224292",
+      "language": "English",
+      "numPages": 352,
+      "publisher": "Penguin Press",
+      "work": {
+        "id": 2
+      }
+    },
+    {
+      "editionPubDate": "2018-08-14T00:00:00Z",
+      "format": "Hardcover",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/51j5p18mJNL.jpg",
+      "isbn": "0735219095",
+      "isbn13": "9780735219090",
+      "language": "English",
+      "numPages": 384,
+      "publisher": "G.P. Putnam's Sons",
+      "work": {
+        "id": 3
+      }
+    },
+    {
+      "editionPubDate": "2004-09-30T00:00:00Z",
+      "format": "Paperback",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/81af+MCATTL.jpg",
+      "isbn": "0743273567",
+      "isbn13": "9780743273565",
+      "language": "English",
+      "numPages": 180,
+      "publisher": "Scribner",
+      "work": {
+        "id": 4
+      }
+    },
+    {
+      "editionPubDate": "2020-01-21T00:00:00Z",
+      "format": "Hardcover",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/81iVsj91eQL.jpg",
+      "isbn": "1250209765",
+      "isbn13": "9781250209764",
+      "language": "English",
+      "numPages": 400,
+      "publisher": "Flatiron Books",
+      "work": {
+        "id": 5
+      }
+    },
+    {
+      "editionPubDate": "2018-09-16T00:00:00Z",
+      "format": "Hardcover",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/91Xq+S+F2jL.jpg",
+      "isbn": "0735211299",
+      "isbn13": "9780735211292",
+      "language": "English",
+      "numPages": 320,
+      "publisher": "Avery",
+      "work": {
+        "id": 6
+      }
+    }
+  ]
+}

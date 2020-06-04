@@ -162,6 +162,7 @@ func main() {
 	}
 
 	data.LoadWorks(w)
+	data.LoadPublications(p)
 
 	r := mux.NewRouter()
 	API := r.PathPrefix("/api").Subrouter()

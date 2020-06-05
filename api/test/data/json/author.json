@@ -1,0 +1,58 @@
+{
+  "authors": [
+    {
+      "firstName": "Sally",
+      "lastName": "Rooney",
+      "gender": "F",
+      "dateOfBirth": "1991-02-20",
+      "placeOfBirth": {
+        "id": 4
+      }
+    },
+    {
+      "firstName": "Celeste",
+      "lastName": "Ng",
+      "gender": "F",
+      "dateOfBirth": "1980-07-30",
+      "placeOfBirth": {
+        "id": 10
+      }
+    },
+    {
+      "firstName": "Delia",
+      "lastName": "Owens",
+      "gender": "F",
+      "dateOfBirth": "1949-01-01",
+      "placeOfBirth": {
+        "id": 6
+      }
+    },
+    {
+      "firstName": "F. Scott",
+      "lastName": "Fitzgerald",
+      "gender": "M",
+      "dateOfBirth": "1896-09-24",
+      "placeOfBirth": {
+        "id": 7
+      }
+    },
+    {
+      "firstName": "Jeanine",
+      "lastName": "Cummins",
+      "gender": "F",
+      "dateOfBirth": null,
+      "placeOfBirth": {
+        "id": 5
+      }
+    },
+    {
+      "firstName": "James",
+      "lastName": "Clear",
+      "gender": "M",
+      "dateOfBirth": null,
+      "placeOfBirth": {
+        "id": 9
+      }
+    }
+  ]
+}

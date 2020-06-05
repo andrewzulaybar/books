@@ -99,6 +99,14 @@ func (s *Service) GetLocation(id int) (*status.Status, *Location) {
 
 // PostLocation creates an entry in the location table with the given attributes.
 func (s *Service) PostLocation(loc *Location) (*status.Status, *Location) {
+	if loc.ID != 0 {
+		s, l := s.GetLocation(loc.ID)
+		if s.Err() != nil {
+			return status.New(status.UnprocessableEntity, s.Message()), nil
+		}
+		return status.New(status.OK, ""), l
+	}
+
 	db := s.DB
 	if err := db.QueryRow(
 		s.Query(PostLocation),

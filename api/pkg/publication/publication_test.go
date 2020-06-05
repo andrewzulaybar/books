@@ -6,6 +6,8 @@ import (
 
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/author"
+	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/pkg/work"
@@ -30,6 +32,14 @@ func getDB(t *testing.T) (*postgres.DB, func()) {
 
 func setup(t *testing.T, db *postgres.DB, td *TestData) (*publication.Service, publication.Publications) {
 	t.Helper()
+
+	l := &location.Service{DB: *db}
+	a := &author.Service{
+		DB:              *db,
+		LocationService: *l,
+	}
+	data.LoadLocations(l)
+	data.LoadAuthors(a)
 
 	w := &work.Service{DB: *db}
 	p := &publication.Service{
@@ -200,17 +210,17 @@ func TestGetPublication(t *testing.T) {
 		expected Expected
 	}{
 		{
-			"ValidId",
-			1,
-			Expected{
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
 				status: status.New(status.OK, ""),
 				pub:    &pubs[0],
 			},
 		},
 		{
-			"InvalidId",
-			-1,
-			Expected{
+			name: "InvalidId",
+			id:   -1,
+			expected: Expected{
 				status: status.New(status.NotFound, "Publication with id = -1 does not exist"),
 				pub:    nil,
 			},

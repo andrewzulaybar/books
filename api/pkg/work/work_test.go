@@ -6,6 +6,8 @@ import (
 
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/author"
+	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/pkg/work"
 	"github.com/andrewzulaybar/books/api/test/data"
@@ -22,12 +24,30 @@ func getDB(t *testing.T) (*postgres.DB, func()) {
 	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
 }
 
+func setup(
+	t *testing.T,
+	db *postgres.DB,
+	getWorks func(*work.Service) work.Works,
+) (*work.Service, work.Works) {
+	t.Helper()
+
+	l := &location.Service{DB: *db}
+	a := &author.Service{
+		DB:              *db,
+		LocationService: *l,
+	}
+	data.LoadLocations(l)
+	data.LoadAuthors(a)
+
+	w := &work.Service{DB: *db}
+	return w, getWorks(w)
+}
+
 func TestDeleteWork(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	data.LoadWorks(w)
+	w, _ := setup(t, db, data.LoadWorks)
 
 	type Expected struct {
 		status *status.Status
@@ -76,8 +96,7 @@ func TestDeleteWorks(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	data.LoadWorks(w)
+	w, _ := setup(t, db, data.LoadWorks)
 
 	type Expected struct {
 		status *status.Status
@@ -149,8 +168,7 @@ func TestGetWork(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	works := data.LoadWorks(w)
+	w, works := setup(t, db, data.LoadWorks)
 
 	type Expected struct {
 		status *status.Status
@@ -198,8 +216,7 @@ func TestGetWorks(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	works := data.LoadWorks(w)
+	w, works := setup(t, db, data.LoadWorks)
 
 	type Expected struct {
 		status *status.Status
@@ -225,8 +242,7 @@ func TestPatchWork(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	works := data.LoadWorks(w)
+	w, works := setup(t, db, data.LoadWorks)
 
 	type Expected struct {
 		status *status.Status
@@ -352,8 +368,7 @@ func TestPostWork(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
 
-	w := &work.Service{DB: *db}
-	works := data.GetWorks()
+	w, works := setup(t, db, data.GetWorks)
 
 	type Expected struct {
 		status *status.Status

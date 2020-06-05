@@ -266,6 +266,103 @@ func TestGetAuthors(t *testing.T) {
 	})
 }
 
+func TestPatchPublication(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	td := &TestData{data.LoadLocations, data.LoadAuthors}
+	a, _ := setup(t, db, td)
+
+	type Expected struct {
+		status *status.Status
+		id     int
+	}
+
+	cases := []struct {
+		name     string
+		author   *author.Author
+		expected Expected
+	}{
+		{
+			name: "PatchFirstName",
+			author: &author.Author{
+				ID:        1,
+				FirstName: "John",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
+			},
+		},
+		{
+			name: "PatchLastName",
+			author: &author.Author{
+				ID:       1,
+				LastName: "Steinbeck",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
+			},
+		},
+		{
+			name: "PatchGender",
+			author: &author.Author{
+				ID:     1,
+				Gender: "M",
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
+			},
+		},
+		{
+			name: "PatchDateOfBirth",
+			author: func() *author.Author {
+				var dateOfBirth string = "1902-02-27T00:00:00Z"
+				author := &author.Author{
+					ID:          1,
+					DateOfBirth: &dateOfBirth,
+				}
+				return author
+			}(),
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
+			},
+		},
+		{
+			name: "PatchPlaceOfBirth",
+			author: &author.Author{
+				ID: 1,
+				PlaceOfBirth: location.Location{
+					City:    "Salinas",
+					Region:  "California",
+					Country: "United States of America",
+				},
+			},
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				id:     1,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, author := a.PatchAuthor(c.author)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+			_, want := a.GetAuthor(exp.id)
+			if !reflect.DeepEqual(want, author) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", want, author)
+			}
+		})
+	}
+}
+
 func TestPostAuthor(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

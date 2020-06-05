@@ -20,6 +20,7 @@ const (
 	DeleteAuthor
 	GetAuthor
 	GetAuthors
+	PatchAuthor
 	PostAuthor
 )
 
@@ -65,6 +66,27 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 			Columns,
 			location.Columns,
 		)
+	case PatchAuthor:
+		var hasUpdate bool
+		query := "UPDATE author SET "
+		for column, value := range args[0].(map[string]interface{}) {
+			switch value.(type) {
+			case string:
+				if value != "" {
+					query += fmt.Sprintf("%s = '%s',", column, value)
+					hasUpdate = true
+				}
+			case int:
+				if value != 0 {
+					query += fmt.Sprintf("%s = %d,", column, value)
+					hasUpdate = true
+				}
+			}
+		}
+		if hasUpdate {
+			return strings.TrimSuffix(query, ",") + " WHERE id = $1"
+		}
+		return ""
 	case PostAuthor:
 		query := "INSERT INTO author ("
 		values := []interface{}{}
@@ -161,6 +183,39 @@ func (s *Service) GetAuthors() (*status.Status, Authors) {
 		authors = append(authors, *author)
 	}
 	return status.New(status.OK, ""), authors
+}
+
+// PatchAuthor updates the entry in the database matching author.id with the given attributes.
+func (s *Service) PatchAuthor(author *Author) (*status.Status, *Author) {
+	var placeOfBirth int
+	if author.PlaceOfBirth != (location.Location{}) {
+		stat, location := s.LocationService.PostLocation(&author.PlaceOfBirth)
+		if err := stat.Err(); err != nil {
+			return status.New(stat.Code(), stat.Message()), nil
+		}
+		placeOfBirth = location.ID
+	}
+
+	var dateOfBirth string = ""
+	if author.DateOfBirth != nil {
+		dateOfBirth = *author.DateOfBirth
+	}
+	a := map[string]interface{}{
+		"first_name":     author.FirstName,
+		"last_name":      author.LastName,
+		"gender":         author.Gender,
+		"date_of_birth":  dateOfBirth,
+		"place_of_birth": placeOfBirth,
+	}
+
+	db := s.DB
+	patchAuthor := s.Query(PatchAuthor, a)
+	if patchAuthor != "" {
+		if _, err := db.Exec(patchAuthor, author.ID); err != nil {
+			return status.New(status.UnprocessableEntity, err.Error()), nil
+		}
+	}
+	return s.GetAuthor(author.ID)
 }
 
 // PostAuthor creates an entry in the author table with the given attributes.

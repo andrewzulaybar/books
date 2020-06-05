@@ -4,7 +4,7 @@
       "firstName": "Sally",
       "lastName": "Rooney",
       "gender": "F",
-      "dateOfBirth": "1991-02-20",
+      "dateOfBirth": "1991-02-20T00:00:00Z",
       "placeOfBirth": {
         "id": 4
       }
@@ -13,7 +13,7 @@
       "firstName": "Celeste",
       "lastName": "Ng",
       "gender": "F",
-      "dateOfBirth": "1980-07-30",
+      "dateOfBirth": "1980-07-30T00:00:00Z",
       "placeOfBirth": {
         "id": 10
       }
@@ -22,7 +22,7 @@
       "firstName": "Delia",
       "lastName": "Owens",
       "gender": "F",
-      "dateOfBirth": "1949-01-01",
+      "dateOfBirth": "1949-01-01T00:00:00Z",
       "placeOfBirth": {
         "id": 6
       }
@@ -31,7 +31,7 @@
       "firstName": "F. Scott",
       "lastName": "Fitzgerald",
       "gender": "M",
-      "dateOfBirth": "1896-09-24",
+      "dateOfBirth": "1896-09-24T00:00:00Z",
       "placeOfBirth": {
         "id": 7
       }

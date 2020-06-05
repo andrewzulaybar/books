@@ -1,6 +1,7 @@
 package author
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,7 @@ const Columns string = "first_name, last_name, gender, date_of_birth, place_of_b
 // Enum constants representing types of SQL statements.
 const (
 	Unknown postgres.Query = iota
+	GetAuthor
 	PostAuthor
 )
 
@@ -42,6 +44,15 @@ type Service struct {
 // Query returns a SQL statement based on the postgres.Query value passed in.
 func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
+	case GetAuthor:
+		return fmt.Sprintf(
+			`SELECT author.id, %s, %s
+                        FROM author
+                        JOIN location ON author.place_of_birth=location.id
+                        WHERE author.id = $1`,
+			Columns,
+			location.Columns,
+		)
 	case PostAuthor:
 		query := "INSERT INTO author ("
 		values := []interface{}{}
@@ -65,6 +76,32 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	default:
 		return ""
 	}
+}
+
+// GetAuthor retrieves the author from the database matching the given id.
+func (s *Service) GetAuthor(id int) (*status.Status, *Author) {
+	db := s.DB
+	getAuthor := s.Query(GetAuthor)
+
+	var author Author
+	row := db.QueryRow(getAuthor, id)
+	if err := row.Scan(
+		&author.ID,
+		&author.FirstName,
+		&author.LastName,
+		&author.Gender,
+		&author.DateOfBirth,
+		&author.PlaceOfBirth.ID,
+		&author.PlaceOfBirth.City,
+		&author.PlaceOfBirth.Country,
+		&author.PlaceOfBirth.Region,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return status.Newf(status.NotFound, "Author with id = %d does not exist", id), nil
+		}
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+	return status.New(status.OK, ""), &author
 }
 
 // PostAuthor creates an entry in the author table with the given attributes.

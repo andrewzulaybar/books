@@ -50,6 +50,55 @@ func setup(t *testing.T, db *postgres.DB, td *TestData) (*author.Service, author
 	return a, authors
 }
 
+func TestGetAuthor(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	td := &TestData{data.LoadLocations, data.LoadAuthors}
+	a, authors := setup(t, db, td)
+
+	type Expected struct {
+		status *status.Status
+		author *author.Author
+	}
+
+	cases := []struct {
+		name     string
+		id       int
+		expected Expected
+	}{
+		{
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.OK, ""),
+				author: &authors[0],
+			},
+		},
+		{
+			name: "InvalidId",
+			id:   -1,
+			expected: Expected{
+				status: status.New(status.NotFound, "Author with id = -1 does not exist"),
+				author: nil,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, author := a.GetAuthor(c.id)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+			if !reflect.DeepEqual(exp.author, author) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.author, author)
+			}
+		})
+	}
+}
+
 func TestPostAuthor(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

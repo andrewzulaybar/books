@@ -100,6 +100,88 @@ func TestDeleteAuthor(t *testing.T) {
 	}
 }
 
+func TestDeleteAuthors(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	td := &TestData{data.LoadLocations, data.LoadAuthors}
+	a, _ := setup(t, db, td)
+
+	type Expected struct {
+		status *status.Status
+		ids    []int
+	}
+
+	cases := []struct {
+		name     string
+		ids      []int
+		expected Expected
+	}{
+		{
+			name: "OneId",
+			ids:  []int{1},
+			expected: Expected{
+				status: status.New(status.NoContent, ""),
+				ids:    nil,
+			},
+		},
+		{
+			name: "MultipleIds",
+			ids:  []int{2, 3, 4},
+			expected: Expected{
+				status: status.New(status.NoContent, ""),
+				ids:    nil,
+			},
+		},
+		{
+			name: "AlreadyDeletedIds",
+			ids:  []int{1, 2, 3},
+			expected: Expected{
+				status: status.New(
+					status.OK,
+					"The following authors could not be found: [1 2 3]",
+				),
+				ids: []int{1, 2, 3},
+			},
+		},
+		{
+			name: "IncludesIdNotFound",
+			ids:  []int{5, 6, -1},
+			expected: Expected{
+				status: status.New(
+					status.OK,
+					"The following authors could not be found: [-1]",
+				),
+				ids: []int{-1},
+			},
+		},
+		{
+			name: "AllIdsNotFound",
+			ids:  []int{-1, -2, -3},
+			expected: Expected{
+				status: status.New(
+					status.OK,
+					"The following authors could not be found: [-1 -2 -3]",
+				),
+				ids: []int{-1, -2, -3},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, ids := a.DeleteAuthors(c.ids)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+			if !reflect.DeepEqual(exp.ids, ids) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.ids, ids)
+			}
+		})
+	}
+}
+
 func TestGetAuthor(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

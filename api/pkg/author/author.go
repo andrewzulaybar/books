@@ -111,6 +111,21 @@ func (s *Service) DeleteAuthor(id int) *status.Status {
 	return status.New(status.NoContent, "")
 }
 
+// DeleteAuthors removes the entries in the author table matching the given ids.
+func (s *Service) DeleteAuthors(ids []int) (*status.Status, []int) {
+	notFound := []int{}
+	for _, id := range ids {
+		if s := s.DeleteAuthor(id); s.Code() == status.NotFound {
+			notFound = append(notFound, id)
+		}
+	}
+
+	if len(notFound) > 0 {
+		return status.Newf(status.OK, "The following authors could not be found: %v", notFound), notFound
+	}
+	return status.New(status.NoContent, ""), nil
+}
+
 // GetAuthor retrieves the author from the database matching the given id.
 func (s *Service) GetAuthor(id int) (*status.Status, *Author) {
 	db := s.DB

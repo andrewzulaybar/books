@@ -99,6 +99,41 @@ func TestGetAuthor(t *testing.T) {
 	}
 }
 
+func TestGetAuthors(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	td := &TestData{data.LoadLocations, data.LoadAuthors}
+	a, authors := setup(t, db, td)
+
+	type Expected struct {
+		status  *status.Status
+		authors author.Authors
+	}
+
+	c := struct {
+		name     string
+		expected Expected
+	}{
+		"AllAuthors",
+		Expected{
+			status:  status.New(status.OK, ""),
+			authors: authors,
+		},
+	}
+
+	exp := c.expected
+	t.Run(c.name, func(t *testing.T) {
+		s, authors := a.GetAuthors()
+		if !reflect.DeepEqual(exp.status, s) {
+			t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+		}
+		if !reflect.DeepEqual(exp.authors, authors) {
+			t.Errorf("\nExpected: %v\nActual: %v\n", exp.authors, authors)
+		}
+	})
+}
+
 func TestPostAuthor(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()
@@ -127,7 +162,7 @@ func TestPostAuthor(t *testing.T) {
 		{
 			name: "OnlyRequiredFields",
 			author: func() *author.Author {
-				authors[1].DateOfBirth = ""
+				authors[1].DateOfBirth = nil
 				authors[1].PlaceOfBirth = location.Location{}
 				return &authors[1]
 			}(),

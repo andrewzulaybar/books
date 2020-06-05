@@ -15,6 +15,7 @@ const Columns string = "city, country, region"
 // Enum constants representing types of SQL statements.
 const (
 	Unknown postgres.Query = iota
+	DeleteLocation
 	GetLocation
 	PostLocation
 )
@@ -38,6 +39,8 @@ type Service struct {
 // Query returns a SQL statement based on the postgres.Query value passed in.
 func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
+	case DeleteLocation:
+		return "DELETE FROM location WHERE ID = $1"
 	case GetLocation:
 		return fmt.Sprintf("SELECT id, %s FROM location WHERE id = $1", Columns)
 	case PostLocation:
@@ -50,6 +53,27 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	default:
 		return ""
 	}
+}
+
+// DeleteLocation removes the entry in the location table matching the given id.
+func (s *Service) DeleteLocation(id int) *status.Status {
+	db := s.DB
+	deleteLocation := s.Query(DeleteLocation)
+
+	res, err := db.Exec(deleteLocation, id)
+	if err != nil {
+		return status.New(status.InternalServerError, err.Error())
+	}
+
+	numDeleted, err := res.RowsAffected()
+	if err != nil {
+		return status.New(status.InternalServerError, err.Error())
+	}
+	if numDeleted == 0 {
+		return status.Newf(status.OK, "Location with id = %d does not exist", id)
+	}
+
+	return status.New(status.NoContent, "")
 }
 
 // GetLocation retrieves the location from the database matching the given id.

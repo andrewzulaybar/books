@@ -22,6 +22,56 @@ func getDB(t *testing.T) (*postgres.DB, func()) {
 	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
 }
 
+func TestDeleteLocation(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	l := &location.Service{DB: *db}
+	data.LoadLocations(l)
+
+	type Expected struct {
+		status *status.Status
+	}
+
+	cases := []struct {
+		name     string
+		id       int
+		expected Expected
+	}{
+		{
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.NoContent, ""),
+			},
+		},
+		{
+			name: "AlreadyDeletedId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.OK, "Location with id = 1 does not exist"),
+			},
+		},
+		{
+			name: "InvalidId",
+			id:   -1,
+			expected: Expected{
+				status: status.New(status.OK, "Location with id = -1 does not exist"),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s := l.DeleteLocation(c.id)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+		})
+	}
+}
+
 func TestGetWork(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

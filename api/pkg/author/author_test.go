@@ -50,6 +50,56 @@ func setup(t *testing.T, db *postgres.DB, td *TestData) (*author.Service, author
 	return a, authors
 }
 
+func TestDeleteAuthor(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	td := &TestData{data.LoadLocations, data.LoadAuthors}
+	a, _ := setup(t, db, td)
+
+	type Expected struct {
+		status *status.Status
+	}
+
+	cases := []struct {
+		name     string
+		id       int
+		expected Expected
+	}{
+		{
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.NoContent, ""),
+			},
+		},
+		{
+			name: "AlreadyDeletedId",
+			id:   1,
+			expected: Expected{
+				status: status.New(status.NotFound, "Author with id = 1 does not exist"),
+			},
+		},
+		{
+			name: "NegativeId",
+			id:   -1,
+			expected: Expected{
+				status: status.New(status.NotFound, "Author with id = -1 does not exist"),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s := a.DeleteAuthor(c.id)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+		})
+	}
+}
+
 func TestGetAuthor(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

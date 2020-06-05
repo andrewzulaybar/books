@@ -17,6 +17,7 @@ const Columns string = "first_name, last_name, gender, date_of_birth, place_of_b
 // Enum constants representing types of SQL statements.
 const (
 	Unknown postgres.Query = iota
+	DeleteAuthor
 	GetAuthor
 	GetAuthors
 	PostAuthor
@@ -45,6 +46,8 @@ type Service struct {
 // Query returns a SQL statement based on the postgres.Query value passed in.
 func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
+	case DeleteAuthor:
+		return "DELETE FROM author WHERE id = $1"
 	case GetAuthor:
 		return fmt.Sprintf(
 			`SELECT author.id, %s, %s
@@ -85,6 +88,27 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	default:
 		return ""
 	}
+}
+
+// DeleteAuthor removes the entry in the author table matching the given id.
+func (s *Service) DeleteAuthor(id int) *status.Status {
+	db := s.DB
+	deleteAuthor := s.Query(DeleteAuthor)
+
+	res, err := db.Exec(deleteAuthor, id)
+	if err != nil {
+		return status.New(status.InternalServerError, err.Error())
+	}
+
+	numDeleted, err := res.RowsAffected()
+	if err != nil {
+		return status.New(status.InternalServerError, err.Error())
+	}
+	if numDeleted == 0 {
+		return status.Newf(status.NotFound, "Author with id = %d does not exist", id)
+	}
+
+	return status.New(status.NoContent, "")
 }
 
 // GetAuthor retrieves the author from the database matching the given id.

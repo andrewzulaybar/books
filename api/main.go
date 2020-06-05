@@ -7,6 +7,7 @@ import (
 
 	"github.com/andrewzulaybar/books/api/config"
 	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/author"
 	"github.com/andrewzulaybar/books/api/pkg/handlers"
 	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
@@ -26,6 +27,10 @@ func main() {
 	defer dc()
 
 	l := &location.Service{DB: *db}
+	a := &author.Service{
+		DB:              *db,
+		LocationService: *l,
+	}
 	w := &work.Service{DB: *db}
 	p := &publication.Service{
 		DB:          *db,
@@ -33,6 +38,7 @@ func main() {
 	}
 
 	data.LoadLocations(l)
+	data.LoadAuthors(a)
 	data.LoadWorks(w)
 	data.LoadPublications(p)
 
@@ -46,7 +52,11 @@ func main() {
 	API.HandleFunc("/work", handlers.Works(w)).
 		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
 	API.HandleFunc("/work/{id:[0-9]+}", handlers.Work(w)).
+		Methods(http.MethodGet, http.MethodPatch, http.MethodDelete)
+	API.HandleFunc("/author", handlers.Authors(a)).
 		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+	API.HandleFunc("/author/{id:[0-9]+}", handlers.Author(a)).
+		Methods(http.MethodGet, http.MethodPatch, http.MethodDelete)
 
 	srv := &http.Server{
 		Handler:      h.CORS()(r),

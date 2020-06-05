@@ -1,6 +1,8 @@
 package data
 
-import "github.com/andrewzulaybar/books/api/pkg/location"
+import (
+	"github.com/andrewzulaybar/books/api/pkg/location"
+)
 
 // GetLocations reads the test data in `location.json` and returns it.
 func GetLocations() location.Locations {

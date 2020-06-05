@@ -1,6 +1,7 @@
 package location
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
@@ -14,6 +15,7 @@ const Columns string = "city, country, region"
 // Enum constants representing types of SQL statements.
 const (
 	Unknown postgres.Query = iota
+	GetLocation
 	PostLocation
 )
 
@@ -36,6 +38,8 @@ type Service struct {
 // Query returns a SQL statement based on the postgres.Query value passed in.
 func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
+	case GetLocation:
+		return fmt.Sprintf("SELECT id, %s FROM location WHERE id = $1", Columns)
 	case PostLocation:
 		return fmt.Sprintf(
 			`INSERT INTO location (%s)
@@ -48,6 +52,28 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	}
 }
 
+// GetLocation retrieves the location from the database matching the given id.
+func (s *Service) GetLocation(id int) (*status.Status, *Location) {
+	db := s.DB
+	getLocation := s.Query(GetLocation)
+
+	var location Location
+	row := db.QueryRow(getLocation, id)
+	if err := row.Scan(
+		&location.ID,
+		&location.City,
+		&location.Country,
+		&location.Region,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return status.Newf(status.NotFound, "Location with id = %d does not exist", id), nil
+		}
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+	return status.New(status.OK, ""), &location
+}
+
+// PostLocation creates an entry in the location table with the given attributes.
 func (s *Service) PostLocation(loc *Location) (*status.Status, *Location) {
 	db := s.DB
 	if err := db.QueryRow(

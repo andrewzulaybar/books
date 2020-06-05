@@ -22,6 +22,55 @@ func getDB(t *testing.T) (*postgres.DB, func()) {
 	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
 }
 
+func TestGetWork(t *testing.T) {
+	db, dc := getDB(t)
+	defer dc()
+
+	l := &location.Service{DB: *db}
+	locations := data.LoadLocations(l)
+
+	type Expected struct {
+		status   *status.Status
+		location *location.Location
+	}
+
+	cases := []struct {
+		name     string
+		id       int
+		expected Expected
+	}{
+		{
+			name: "ValidId",
+			id:   1,
+			expected: Expected{
+				status:   status.New(status.OK, ""),
+				location: &locations[0],
+			},
+		},
+		{
+			name: "InvalidId",
+			id:   -1,
+			expected: Expected{
+				status:   status.New(status.NotFound, "Location with id = -1 does not exist"),
+				location: nil,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		exp := c.expected
+		t.Run(c.name, func(t *testing.T) {
+			s, loc := l.GetLocation(c.id)
+			if !reflect.DeepEqual(exp.status, s) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
+			}
+			if !reflect.DeepEqual(exp.location, loc) {
+				t.Errorf("\nExpected: %v\nActual: %v\n", exp.location, loc)
+			}
+		})
+	}
+}
+
 func TestPostLocation(t *testing.T) {
 	db, dc := getDB(t)
 	defer dc()

@@ -3,6 +3,8 @@ package postgres
 import (
 	"database/sql"
 	"io/ioutil"
+	"path"
+	"runtime"
 
 	_ "github.com/lib/pq" // postgres driver
 )
@@ -41,10 +43,9 @@ func (db *DB) Disconnect() error {
 	return db.Close()
 }
 
-// Init creates tables and populates them with data
-// by running the scripts found at the given directory path.
-func (db *DB) Init(dirPath string) error {
-	for _, filePath := range getFilePaths(dirPath) {
+// Init creates tables and populates them with data.
+func (db *DB) Init() error {
+	for _, filePath := range getFilePaths() {
 		bytes, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return err
@@ -60,24 +61,27 @@ func (db *DB) Init(dirPath string) error {
 
 // Setup creates a new DB instance and returns it after successfully connecting
 // and initializing the database. It also returns a closure function for easy cleanup.
-func Setup(params string, sqlDirPath string) (*DB, func()) {
+func Setup(params string) (*DB, func()) {
 	db := new(DB)
 
 	if err := db.Connect(params); err != nil {
 		panic(err)
 	}
 
-	if err := db.Init(sqlDirPath); err != nil {
+	if err := db.Init(); err != nil {
 		panic(err)
 	}
 
 	return db, func() { db.Disconnect() }
 }
 
-func getFilePaths(dirPath string) []string {
-	filePaths := []string{dirPath + "init.sql"}
+func getFilePaths() []string {
+	_, file, _, _ := runtime.Caller(0)
+	dirPath := path.Join(path.Dir(file), "../sql")
+
+	filePaths := []string{path.Join(dirPath, "init.sql")}
 	for _, table := range tables {
-		filePath := dirPath + table + ".sql"
+		filePath := path.Join(dirPath, table+".sql")
 		filePaths = append(filePaths, filePath)
 	}
 	return filePaths

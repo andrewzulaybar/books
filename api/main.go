@@ -18,12 +18,12 @@ import (
 )
 
 func main() {
-	conf, err := config.Load("config/.env")
+	conf, err := config.Load(".env")
 	if err != nil {
 		panic(err)
 	}
 
-	db, dc := postgres.Setup(conf.ConnectionString, "internal/sql/")
+	db, dc := postgres.Setup(conf.ConnectionString)
 	defer dc()
 
 	l := &location.Service{DB: *db}

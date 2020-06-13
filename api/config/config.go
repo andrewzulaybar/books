@@ -1,6 +1,9 @@
 package config
 
 import (
+	"path"
+	"runtime"
+
 	"github.com/joho/godotenv"
 )
 
@@ -10,8 +13,11 @@ type Config struct {
 	Address          string
 }
 
-// Load returns the environment variables set in the file of the given path.
-func Load(path string) (*Config, error) {
+// Load returns the environment variables set in the given file.
+func Load(fileName string) (*Config, error) {
+	_, file, _, _ := runtime.Caller(0)
+	path := path.Join(path.Dir(file), fileName)
+
 	env, err := godotenv.Read(path)
 	if err != nil {
 		return nil, err

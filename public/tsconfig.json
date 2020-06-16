@@ -14,7 +14,10 @@
     "target": "es2015",
     "lib": ["es2018", "dom"],
     "paths": {
-      "@env/*": ["./src/environments/*"]
+      "@app/*": ["./src/app/*"],
+      "@env/*": ["./src/environments/*"],
+      "@models/*": ["./src/app/shared/models/*"],
+      "@service/*": ["./src/app/core/service/*"]
     }
   },
   "angularCompilerOptions": {

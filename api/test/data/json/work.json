@@ -1,46 +1,58 @@
 {
   "works": [
     {
-      "authorId": 1,
       "description": "Connell Waldron is one of the most popular boys in his small-town high school--he is a star of the football team, an excellent student, and never wanting for attention from girls. The one thing he doesn't have is money. Marianne Sheridan, a classmate of Connell's, has the opposite problem. Marianne is plain-looking, odd, and stubborn, and while her family is well-off, she has no friends to speak of. There is, however, a deep and undeniable connection between the two teenagers, one that develops into a secret relationship. <br>Everything changes when both Connell and Marianne are accepted to Trinity College. Suddenly Marianne is well-liked and elegant, holding court with her intellectual friends while Connell hangs at the sidelines, not quite as fluent in language of the elite. Throughout their years at university, Marianne and Connell circle each other, falling in and out of romance but never straying far from where they started. And as Marianne experiments with an increasingly dangerous string of boyfriends, Connell must decide how far he is willing to go to save his oldest friend. <br>Sally Rooney brings her brilliant psychological acuity and perfectly spare prose to a novel that explores the subtleties of class, the electricity of first love, and the inescapable challenges of family and friendships. Normal People is a book that you will read in one sitting, and then immediately share with your friends.",
       "initialPubDate": "2018-08-28T00:00:00Z",
       "originalLanguage": "English",
-      "title": "Normal People"
+      "title": "Normal People",
+      "author": {
+        "id": 1
+      }
     },
     {
-      "authorId": 2,
       "description": "From the bestselling author of Everything I Never Told You, a riveting novel that traces the intertwined fates of the picture-perfect Richardson family and the enigmatic mother and daughter who upend their lives. <br>In Shaker Heights, a placid, progressive suburb of Cleveland, everything is planned—from the layout of the winding roads, to the colors of the houses, to the successful lives its residents will go on to lead. And no one embodies this spirit more than Elena Richardson, whose guiding principle is playing by the rules. <br>Enter Mia Warren—an enigmatic artist and single mother—who arrives in this idyllic bubble with her teenaged daughter Pearl, and rents a house from the Richardsons. Soon Mia and Pearl become more than tenants: all four Richardson children are drawn to the mother-daughter pair. But Mia carries with her a mysterious past and a disregard for the status quo that threatens to upend this carefully ordered community. <br>When old family friends of the Richardsons attempt to adopt a Chinese-American baby, a custody battle erupts that dramatically divides the town—and puts Mia and Elena on opposing sides.  Suspicious of Mia and her motives, Elena is determined to uncover the secrets in Mia’s past. But her obsession will come at unexpected and devastating costs. <br>Little Fires Everywhere explores the weight of secrets, the nature of art and identity, and the ferocious pull of motherhood—and the danger of believing that following the rules can avert disaster. <br>Named a Best Book of the Year by: People, The Washington Post, Bustle, Esquire, Southern Living, The Daily Beast, GQ, Entertainment Weekly, NPR, Amazon, Barnes & Noble, iBooks, Audible, Goodreads, Library Reads, Book of the Month, Paste, Kirkus Reviews, St. Louis Post-Dispatch, and many more... <br>Perfect for book clubs! Visit celesteng.com for discussion guides and more.",
       "initialPubDate": "2017-09-12T00:00:00Z",
       "originalLanguage": "English",
-      "title": "Little Fires Everywhere"
+      "title": "Little Fires Everywhere",
+      "author": {
+        "id": 2
+      }
     },
     {
-      "authorId": 3,
       "description": "For years, rumors of the \"Marsh Girl\" have haunted Barkley Cove, a quiet town on the North Carolina coast. So in late 1969, when handsome Chase Andrews is found dead, the locals immediately suspect Kya Clark, the so-called Marsh Girl. But Kya is not what they say. Sensitive and intelligent, she has survived for years alone in the marsh that she calls home, finding friends in the gulls and lessons in the sand. Then the time comes when she yearns to be touched and loved. When two young men from town become intrigued by her wild beauty, Kya opens herself to a new life--until the unthinkable happens. <br>Where the Crawdads Sing is at once an exquisite ode to the natural world, a heartbreaking coming-of-age story, and a surprising tale of possible murder. Owens reminds us that we are forever shaped by the children we once were, and that we are all subject to the beautiful and violent secrets that nature keeps.",
       "initialPubDate": "2018-08-14T00:00:00Z",
       "originalLanguage": "English",
-      "title": "Where the Crawdads Sing"
+      "title": "Where the Crawdads Sing",
+      "author": {
+        "id": 3
+      }
     },
     {
-      "authorId": 4,
       "description": "The Great Gatsby, F. Scott Fitzgerald's third book, stands as the supreme achievement of his career. This exemplary novel of the Jazz Age has been acclaimed by generations of readers. The story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan, of lavish parties on Long Island at a time when The New York Times noted \"gin was the national drink and sex the national obsession,\" it is an exquisitely crafted tale of America in the 1920s. <br>The Great Gatsby is one of the great classics of twentieth-century literature.",
       "initialPubDate": "1925-01-01T00:00:00Z",
       "originalLanguage": "English",
-      "title": "The Great Gatsby"
+      "title": "The Great Gatsby",
+      "author": {
+        "id": 4
+      }
     },
     {
-      "authorId": 5,
       "description": "Lydia Quixano Pérez lives in the Mexican city of Acapulco. She runs a bookstore. She has a son, Luca, the love of her life, and a wonderful husband who is a journalist. And while there are cracks beginning to show in Acapulco because of the drug cartels, her life is, by and large, fairly comfortable. <br>Even though she knows they’ll never sell, Lydia stocks some of her all-time favorite books in her store. And then one day a man enters the shop to browse and comes up to the register with a few books he would like to buy—two of them her favorites. Javier is erudite. He is charming. And, unbeknownst to Lydia, he is the jefe of the newest drug cartel that has gruesomely taken over the city. When Lydia’s husband’s tell-all profile of Javier is published, none of their lives will ever be the same. <br>Forced to flee, Lydia and eight-year-old  Luca soon find themselves miles and worlds away from their comfortable middle-class existence. Instantly transformed into migrants, Lydia and Luca ride la bestia—trains that make their way north toward the United States, which is the only place Javier’s reach doesn’t extend. As they join the countless people trying to reach el norte, Lydia soon sees that everyone is running from something. But what exactly are they running to? <br>American Dirt will leave readers utterly changed. It is a literary achievement filled with poignancy, drama, and humanity on every page. It is one of the most important books for our times. <br>Already being hailed as \"a Grapes of Wrath for our times\" and \"a new American classic,\" Jeanine Cummins's American Dirt is a rare exploration into the inner hearts of people willing to sacrifice everything for a glimmer of hope.",
       "initialPubDate": "2020-01-21T00:00:00Z",
       "originalLanguage": "English",
-      "title": "American Dirt"
+      "title": "American Dirt",
+      "author": {
+        "id": 5
+      }
     },
     {
-      "authorId": 6,
       "description": "No matter your goals, Atomic Habits offers a proven framework for improving - every day. James Clear, one of the world's leading experts on habit formation, reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results. <br>If you're having trouble changing your habits, the problem isn't you. The problem is your system. Bad habits repeat themselves again and again not because you don't want to change, but because you have the wrong system for change. You do not rise to the level of your goals. You fall to the level of your systems. Here, you'll get a proven system that can take you to new heights. <br>Clear is known for his ability to distill complex topics into simple behaviors that can be easily applied to daily life and work. Here, he draws on the most proven ideas from biology, psychology, and neuroscience to create an easy-to-understand guide for making good habits inevitable and bad habits impossible. Along the way, listeners will be inspired and entertained with true stories from Olympic gold medalists, award-winning artists, business leaders, life-saving physicians, and star comedians who have used the science of small habits to master their craft and vault to the top of their field. Learn how to: <br>- make time for new habits (even when life gets crazy); <br>- overcome a lack of motivation and willpower; <br>- design your environment to make success easier; <br>-get back on track when you fall off course; <br>and much more. <br>Atomic Habits will reshape the way you think about progress and success, and give you the tools and strategies you need to transform your habits - whether you are a team looking to win a championship, an organization hoping to redefine an industry, or simply an individual who wishes to quit smoking, lose weight, reduce stress, or achieve any other goal.",
       "initialPubDate": "2018-10-16T00:00:00Z",
       "originalLanguage": "English",
-      "title": "Atomic Habits"
+      "title": "Atomic Habits",
+      "author": {
+        "id": 6
+      }
     }
   ]
 }

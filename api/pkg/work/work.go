@@ -3,20 +3,24 @@ package work
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/author"
+	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/lib/pq"
 )
 
 // Columns is the comma-separated list of columns found in the work table.
-const Columns string = "author_id, description, initial_pub_date, original_language, title"
+const Columns string = "description, initial_pub_date, original_language, title, author_id"
 
 // Enum constants representing types of SQL statements.
 const (
 	Unknown postgres.Query = iota
 	DeleteWork
+	FindWork
 	GetWork
 	GetWorks
 	PatchWork
@@ -25,12 +29,12 @@ const (
 
 // A Work represents a literary work.
 type Work struct {
-	ID               int    `json:"id"`
-	AuthorID         int    `json:"authorId"`
-	Description      string `json:"description"`
-	InitialPubDate   string `json:"initialPubDate"`
-	OriginalLanguage string `json:"originalLanguage"`
-	Title            string `json:"title"`
+	ID               int           `json:"id"`
+	Description      string        `json:"description"`
+	InitialPubDate   string        `json:"initialPubDate"`
+	OriginalLanguage string        `json:"originalLanguage"`
+	Title            string        `json:"title"`
+	Author           author.Author `json:"author"`
 }
 
 // Works represents a list of works.
@@ -39,6 +43,8 @@ type Works []Work
 // Service wraps the database and other dependencies.
 type Service struct {
 	DB postgres.DB
+
+	AuthorService author.Service
 }
 
 // Query returns a SQL statement based on the postgres.Query value passed in.
@@ -46,10 +52,36 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
 	case DeleteWork:
 		return "DELETE FROM work WHERE id = $1"
+	case FindWork:
+		title := args[0].(string)
+		authorID := args[1].(int)
+		return fmt.Sprintf(
+			`SELECT id, %s
+                        FROM work
+                        WHERE title = '%s' AND author_id = %d`,
+			Columns, title, authorID,
+		)
 	case GetWork:
-		return "SELECT * FROM work WHERE id = $1"
+		return fmt.Sprintf(
+			`SELECT work.id, %s, %s, %s
+                        FROM work
+                        JOIN author ON work.author_id=author.id
+                        JOIN location ON author.place_of_birth=location.id
+                        WHERE work.id = $1`,
+			Columns,
+			author.Columns,
+			location.Columns,
+		)
 	case GetWorks:
-		return "SELECT * FROM work ORDER BY id"
+		return fmt.Sprintf(
+			`SELECT work.id, %s, %s, %s
+                        FROM work
+                        JOIN author ON work.author_id=author.id
+                        JOIN location ON author.place_of_birth=location.id`,
+			Columns,
+			author.Columns,
+			location.Columns,
+		)
 	case PatchWork:
 		var hasUpdate bool
 		query := "UPDATE work SET"
@@ -68,14 +100,15 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 			}
 		}
 		if hasUpdate {
-			return strings.TrimSuffix(query, ",") + " WHERE id = $1"
+			return strings.TrimSuffix(query, ",") + fmt.Sprintf(" WHERE id = $1 RETURNING id, %s", Columns)
 		}
 		return ""
 	case PostWork:
 		return fmt.Sprintf(
 			`INSERT INTO work (%s)
                         VALUES ($1, $2, $3, $4, $5)
-                        RETURNING id`,
+                        RETURNING id, %s`,
+			Columns,
 			Columns,
 		)
 	default:
@@ -90,15 +123,19 @@ func (s *Service) DeleteWork(id int) *status.Status {
 
 	res, err := db.Exec(deleteWork, id)
 	if err != nil {
+		log.Printf("[DeleteWork] %s", err)
 		return status.New(status.InternalServerError, err.Error())
 	}
 
 	numDeleted, err := res.RowsAffected()
 	if err != nil {
+		log.Printf("[DeleteWork] %s", err)
 		return status.New(status.InternalServerError, err.Error())
 	}
 	if numDeleted == 0 {
-		return status.Newf(status.OK, "Work with id = %d does not exist", id)
+		msg := fmt.Sprintf("Work with id = %d does not exist", id)
+		log.Printf("[DeleteWork] %s", msg)
+		return status.Newf(status.OK, msg)
 	}
 
 	return status.New(status.NoContent, "")
@@ -114,9 +151,32 @@ func (s *Service) DeleteWorks(ids []int) (*status.Status, []int) {
 	}
 
 	if len(notFound) > 0 {
-		return status.Newf(status.OK, "The following works could not be found: %v", notFound), notFound
+		msg := fmt.Sprintf("The following works could not be found: %v", notFound)
+		log.Printf("[DeleteWorks] %s", msg)
+		return status.Newf(status.OK, msg), notFound
 	}
 	return status.New(status.NoContent, ""), nil
+}
+
+// FindWork retrieves the work from the database matching the given title and authorID.
+func (s *Service) FindWork(title string, authorID int) (*status.Status, *Work) {
+	db := s.DB
+	findWork := s.Query(FindWork, title, authorID)
+
+	var wk Work
+	row := db.QueryRow(findWork)
+	if err := row.Scan(
+		&wk.ID, &wk.Description, &wk.InitialPubDate, &wk.OriginalLanguage, &wk.Title, &wk.Author.ID,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			msg := fmt.Sprintf("Work ('%s', %d) does not exist", title, authorID)
+			log.Printf("[FindWork] %s", msg)
+			return status.Newf(status.NotFound, msg), nil
+		}
+		log.Printf("[FindWork] %s", err)
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+	return status.New(status.OK, ""), &wk
 }
 
 // GetWork retrieves the work from the database matching the given id.
@@ -128,7 +188,9 @@ func (s *Service) GetWork(id int) (*status.Status, *Work) {
 	work, err := s.getWork(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return status.Newf(status.NotFound, "Work with id = %d does not exist", id), nil
+			msg := fmt.Sprintf("Work with id = %d does not exist", id)
+			log.Printf("[GetWork] %s", msg)
+			return status.Newf(status.NotFound, msg), nil
 		}
 		return status.New(status.InternalServerError, err.Error()), nil
 	}
@@ -142,6 +204,7 @@ func (s *Service) GetWorks() (*status.Status, Works) {
 
 	rows, err := db.Query(getWorks)
 	if err != nil {
+		log.Printf("[GetWorks] %s", err)
 		return status.New(status.InternalServerError, err.Error()), nil
 	}
 
@@ -149,6 +212,7 @@ func (s *Service) GetWorks() (*status.Status, Works) {
 	for rows.Next() {
 		work, err := s.getWork(rows)
 		if err != nil {
+			log.Printf("[GetWorks] %s", err)
 			return status.New(status.InternalServerError, err.Error()), nil
 		}
 		works = append(works, *work)
@@ -158,71 +222,136 @@ func (s *Service) GetWorks() (*status.Status, Works) {
 
 // PatchWork updates the entry in the database matching work.id with the given attributes.
 func (s *Service) PatchWork(work *Work) (*status.Status, *Work) {
-	if work != nil && work.ID == 0 {
-		return status.New(status.OK, "No fields in work to update"), nil
+	if work.Author != (author.Author{}) {
+		if s := s.handleAuthor(work); s.Err() != nil {
+			log.Printf("[PatchWork] %s", s.Err())
+			return status.New(s.Code(), s.Message()), nil
+		}
 	}
 
 	db := s.DB
 	w := map[string]interface{}{
-		"author_id":         work.AuthorID,
 		"description":       work.Description,
 		"initial_pub_date":  work.InitialPubDate,
 		"original_language": work.OriginalLanguage,
 		"title":             work.Title,
+		"author_id":         work.Author.ID,
 	}
 
 	patchWork := s.Query(PatchWork, w)
 	if patchWork != "" {
-		if _, err := db.Exec(patchWork, work.ID); err != nil {
+		var wk Work
+		row := db.QueryRow(patchWork, work.ID)
+		if err := row.Scan(
+			&wk.ID, &wk.Description, &wk.InitialPubDate, &wk.OriginalLanguage, &wk.Title, &wk.Author.ID,
+		); err != nil {
 			if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
+				log.Printf("[PatchWork] %s", err)
 				return status.New(status.Conflict, err.Error()), nil
 			}
+			log.Printf("[PatchWork] %s", err)
 			return status.New(status.InternalServerError, err.Error()), nil
 		}
+		return status.New(status.OK, ""), &wk
 	}
-	return s.GetWork(work.ID)
+	return status.New(status.OK, "No fields in work to update"), nil
 }
 
 // PostWork creates an entry in the work table with the given attributes.
 func (s *Service) PostWork(work *Work) (*status.Status, *Work) {
 	if work.ID != 0 {
-		s, w := s.GetWork(work.ID)
-		if s.Err() != nil {
-			return status.New(status.UnprocessableEntity, s.Message()), nil
+		if s, l := s.GetWork(work.ID); s.Code() == status.OK {
+			msg := fmt.Sprintf("Work with id = %d already exists", work.ID)
+			log.Printf("[PostWork] %s", msg)
+			return status.Newf(status.Conflict, msg), l
 		}
-		return status.New(status.OK, ""), w
+	}
+
+	if work.Author != (author.Author{}) {
+		if s := s.handleAuthor(work); s.Err() != nil {
+			log.Printf("[PostWork] %s", s.Err())
+			return status.New(s.Code(), s.Message()), nil
+		}
 	}
 
 	db := s.DB
-	if err := db.QueryRow(
-		s.Query(PostWork),
-		work.AuthorID,
+	postWork := s.Query(PostWork)
+
+	var wk Work
+	row := db.QueryRow(
+		postWork,
 		work.Description,
 		work.InitialPubDate,
 		work.OriginalLanguage,
 		work.Title,
-	).Scan(&(work.ID)); err != nil {
+		work.Author.ID,
+	)
+	if err := row.Scan(
+		&wk.ID,
+		&wk.Description,
+		&wk.InitialPubDate,
+		&wk.OriginalLanguage,
+		&wk.Title,
+		&wk.Author.ID,
+	); err != nil {
 		if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
+			log.Printf("[PostWork]: %s", err)
 			return status.New(status.Conflict, err.Error()), nil
 		}
+		log.Printf("[PostWork]: %s", err)
 		return status.New(status.UnprocessableEntity, err.Error()), nil
 	}
-	return status.New(status.Created, ""), work
+	return status.New(status.Created, ""), &wk
 }
 
 func (s *Service) getWork(row interface {
 	Scan(dest ...interface{}) error
 }) (*Work, error) {
 	var work Work
+	author := &work.Author
+	location := &author.PlaceOfBirth
 	if err := row.Scan(
 		&work.ID,
-		&work.AuthorID,
 		&work.Description,
 		&work.InitialPubDate,
 		&work.OriginalLanguage,
 		&work.Title,
+		&author.ID,
+		&author.FirstName,
+		&author.LastName,
+		&author.Gender,
+		&author.DateOfBirth,
+		&location.ID,
+		&location.City,
+		&location.Country,
+		&location.Region,
 	); err != nil {
 		return nil, err
 	}
 	return &work, nil
+}
+
+func (s *Service) handleAuthor(work *Work) *status.Status {
+	au := &work.Author
+
+	if au.ID != 0 {
+		return status.New(status.OK, "")
+	}
+
+	stat, author := s.AuthorService.PostAuthor(au)
+	if stat.Err() != nil {
+		if stat.Code() != status.Conflict {
+			return status.New(stat.Code(), stat.Message())
+		}
+
+		if stat, author = s.AuthorService.GetAuthor(au.ID); stat.Err() != nil {
+			stat, author = s.AuthorService.FindAuthor(au.FirstName, au.LastName, au.DateOfBirth)
+			if stat.Err() != nil {
+				return status.New(stat.Code(), stat.Message())
+			}
+		}
+	}
+
+	au.ID = author.ID
+	return status.New(status.OK, "")
 }

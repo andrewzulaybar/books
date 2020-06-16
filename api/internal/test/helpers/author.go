@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/andrewzulaybar/books/api/pkg/author"
-	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 )
 
@@ -18,14 +17,14 @@ func DeleteAuthor(t *testing.T, as *author.Service, id int) {
 }
 
 // FindAuthor is a test helper that calls (AuthorService).FindAuthor with the given firstName, lastName, and dateOfBirth.
-func FindAuthor(t *testing.T, as *author.Service, wantLocation location.Location,
+func FindAuthor(t *testing.T, as *author.Service, wantAuthor *author.Author,
 	firstName string, lastName string, dateOfBirth string) *author.Author {
 	t.Helper()
 
 	gotStatus, gotAuthor := as.FindAuthor(firstName, lastName, dateOfBirth)
 	wantStatus := status.New(status.OK, "")
 	AssertEqual(t, gotStatus, wantStatus)
-	AssertEqual(t, gotAuthor, wantLocation)
+	AssertEqual(t, gotAuthor, wantAuthor)
 
 	return gotAuthor
 }

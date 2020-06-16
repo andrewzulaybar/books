@@ -1,11 +1,9 @@
 package work_test
 
 import (
-	"reflect"
 	"testing"
 
-	"github.com/andrewzulaybar/books/api/config"
-	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/internal/test/helpers"
 	"github.com/andrewzulaybar/books/api/pkg/author"
 	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/status"
@@ -13,415 +11,363 @@ import (
 	"github.com/andrewzulaybar/books/api/test/data"
 )
 
-func getDB(t *testing.T) (*postgres.DB, func()) {
-	t.Helper()
-
-	conf, err := config.Load("../../config/test.env")
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-
-	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
-}
-
-func setup(
-	t *testing.T,
-	db *postgres.DB,
-	getWorks func(*work.Service) work.Works,
-) (*work.Service, work.Works) {
-	t.Helper()
-
-	l := &location.Service{DB: *db}
-	a := &author.Service{
-		DB:              *db,
-		LocationService: *l,
-	}
-	data.LoadLocations(l)
-	data.LoadAuthors(a)
-
-	w := &work.Service{DB: *db}
-	return w, getWorks(w)
-}
-
 func TestDeleteWork(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	works := data.GetWorks(ws)
+	helpers.PostWorks(t, ws, works)
 
-	w, _ := setup(t, db, data.LoadWorks)
+	t.Run("ValidID", func(t *testing.T) {
+		got := ws.DeleteWork(1)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	type Expected struct {
-		status *status.Status
-	}
+	t.Run("AlreadyDeletedID", func(t *testing.T) {
+		got := ws.DeleteWork(2)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-			},
-		},
-		{
-			name: "AlreadyDeletedId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.OK, "Work with id = 1 does not exist"),
-			},
-		},
-		{
-			name: "InvalidId",
-			id:   -1,
-			expected: Expected{
-				status: status.New(status.OK, "Work with id = -1 does not exist"),
-			},
-		},
-	}
+		got = ws.DeleteWork(2)
+		want = status.New(status.OK, "Work with id = 2 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s := w.DeleteWork(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-		})
-	}
+	t.Run("NonExistentID", func(t *testing.T) {
+		got := ws.DeleteWork(-1)
+		want := status.New(status.OK, "Work with id = -1 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
+
+	cleanup()
 }
 
 func TestDeleteWorks(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	works := data.GetWorks(ws)
+	helpers.PostWorks(t, ws, works)
 
-	w, _ := setup(t, db, data.LoadWorks)
+	t.Run("OneID", func(t *testing.T) {
+		gotStatus, gotIDs := ws.DeleteWorks([]int{1})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
+	})
 
-	type Expected struct {
-		status *status.Status
-		ids    []int
-	}
+	t.Run("MultipleIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ws.DeleteWorks([]int{2, 3})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
+	})
 
-	cases := []struct {
-		name     string
-		ids      []int
-		expected Expected
-	}{
-		{
-			name: "OneId",
-			ids:  []int{1},
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-				ids:    nil,
-			},
-		},
-		{
-			name: "MultipleIds",
-			ids:  []int{2, 3, 4},
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-				ids:    nil,
-			},
-		},
-		{
-			name: "AlreadyDeletedIds",
-			ids:  []int{1, 2, 3},
-			expected: Expected{
-				status: status.New(status.OK, "The following works could not be found: [1 2 3]"),
-				ids:    []int{1, 2, 3},
-			},
-		},
-		{
-			name: "IncludesIdNotFound",
-			ids:  []int{5, 6, -1},
-			expected: Expected{
-				status: status.New(status.OK, "The following works could not be found: [-1]"),
-				ids:    []int{-1},
-			},
-		},
-		{
-			name: "AllIdsNotFound",
-			ids:  []int{-1, -2, -3},
-			expected: Expected{
-				status: status.New(status.OK, "The following works could not be found: [-1 -2 -3]"),
-				ids:    []int{-1, -2, -3},
-			},
-		},
-	}
+	t.Run("AlreadyDeletedIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ws.DeleteWorks([]int{4, 5})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, ids := w.DeleteWorks(c.ids)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.ids, ids) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.ids, ids)
-			}
-		})
-	}
+		gotStatus, gotIDs = ws.DeleteWorks([]int{4, 5})
+		wantStatus = status.New(status.OK, "The following works could not be found: [4 5]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{4, 5}, gotIDs)
+	})
+
+	t.Run("IncludesNonExistentID", func(t *testing.T) {
+		gotStatus, gotIDs := ws.DeleteWorks([]int{6, -1})
+		wantStatus := status.New(status.OK, "The following works could not be found: [-1]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{-1}, gotIDs)
+	})
+
+	t.Run("AllNonExistentIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ws.DeleteWorks([]int{1, 2, 3})
+		wantStatus := status.New(status.OK, "The following works could not be found: [1 2 3]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{1, 2, 3}, gotIDs)
+	})
+
+	cleanup()
+}
+
+func TestFindWork(t *testing.T) {
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	works := data.GetWorks(ws)
+	helpers.PostWorks(t, ws, works)
+
+	t.Run("ExistingWork", func(t *testing.T) {
+		tw := &works[0]
+		gotStatus, gotWork := ws.FindWork(tw.Title, tw.Author.ID)
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
+
+	t.Run("NonExistentWork", func(t *testing.T) {
+		tw := work.Work{Title: "A", Author: author.Author{ID: 1000}}
+		gotStatus, gotWork := ws.FindWork(tw.Title, tw.Author.ID)
+		wantStatus := status.New(status.NotFound, "Work ('A', 1000) does not exist")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
+
+	cleanup()
 }
 
 func TestGetWork(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	works := data.GetWorks(ws)
+	helpers.PostWorks(t, ws, works)
 
-	w, works := setup(t, db, data.LoadWorks)
+	t.Run("ValidID", func(t *testing.T) {
+		gotStatus, gotWork := ws.GetWork(1)
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, &works[0], gotWork)
+	})
 
-	type Expected struct {
-		status *status.Status
-		work   *work.Work
-	}
+	t.Run("NonExistentID", func(t *testing.T) {
+		gotStatus, gotWork := ws.GetWork(-1)
+		wantStatus := status.New(status.NotFound, "Work with id = -1 does not exist")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				work:   &works[0],
-			},
-		},
-		{
-			name: "InvalidId",
-			id:   -1,
-			expected: Expected{
-				status: status.New(status.NotFound, "Work with id = -1 does not exist"),
-				work:   nil,
-			},
-		},
-	}
-
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, work := w.GetWork(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.work, work) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.work, work)
-			}
-		})
-	}
+	cleanup()
 }
 
 func TestGetWorks(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	tws := data.GetWorks(ws)
+	works := helpers.PostWorks(t, ws, tws)
 
-	w, works := setup(t, db, data.LoadWorks)
-
-	type Expected struct {
-		status *status.Status
-		works  work.Works
-	}
-
-	exp := Expected{
-		status: status.New(status.OK, ""),
-		works:  works,
-	}
 	t.Run("AllWorks", func(t *testing.T) {
-		s, works := w.GetWorks()
-		if !reflect.DeepEqual(exp.status, s) {
-			t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-		}
-		if !reflect.DeepEqual(exp.works, works) {
-			t.Errorf("\nExpected: %v\nActual: %v\n", exp.works, works)
+		gotStatus, gotWorks := ws.GetWorks()
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		for i := range works {
+			helpers.AssertEqual(t, works[i], gotWorks[i])
 		}
 	})
+
+	cleanup()
 }
 
 func TestPatchWork(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	locations := data.GetLocations()
+	authors := data.GetAuthors(&ws.AuthorService)
+	works := data.GetWorks(ws)
 
-	w, works := setup(t, db, data.LoadWorks)
+	t.Run("NoFieldsToUpdate", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
 
-	type Expected struct {
-		status *status.Status
-		id     int
-	}
+		updates := &work.Work{ID: tw.ID}
 
-	cases := []struct {
-		name     string
-		work     *work.Work
-		expected Expected
-	}{
-		{
-			name: "EmptyWork",
-			work: &work.Work{},
-			expected: Expected{
-				status: status.New(status.OK, "No fields in work to update"),
-				id:     0,
-			},
-		},
-		{
-			name: "UpdateAllFields",
-			work: &work.Work{
-				ID:               1,
-				AuthorID:         2,
-				Description:      "This is a test description.",
-				InitialPubDate:   "1900-01-01T00:00:00Z",
-				OriginalLanguage: "French",
-				Title:            "Testing",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "UpdateAuthor",
-			work: &work.Work{
-				ID:       1,
-				AuthorID: 2,
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "UpdateDescription",
-			work: &work.Work{
-				ID:          1,
-				Description: "This is a test description.",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "UpdateInitialPubDate",
-			work: &work.Work{
-				ID:             1,
-				InitialPubDate: "1900-01-01T00:00:00Z",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "UpdateOriginalLanguage",
-			work: &work.Work{
-				ID:               1,
-				OriginalLanguage: "French",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "UpdateTitle",
-			work: &work.Work{
-				ID:    1,
-				Title: "Testing",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "DuplicateAuthorTitle",
-			work: &work.Work{
-				ID:       1,
-				AuthorID: works[1].AuthorID,
-				Title:    works[1].Title,
-			},
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"work_author_id_title_key\"",
-				),
-				id: 0,
-			},
-		},
-	}
+		gotStatus, gotWork := ws.PatchWork(updates)
+		wantStatus := status.New(status.OK, "No fields in work to update")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, work := w.PatchWork(c.work)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			_, want := w.GetWork(exp.id)
-			if !reflect.DeepEqual(want, work) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", want, work)
-			}
+	t.Run("Description", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
+
+		updates := &work.Work{ID: tw.ID, Description: "This is a test description..."}
+
+		gotStatus, gotWork := ws.PatchWork(updates)
+		wantStatus := status.New(status.OK, "")
+		tw.Description = "This is a test description..."
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
+
+	t.Run("InitialPubDate", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
+
+		updates := &work.Work{ID: tw.ID, InitialPubDate: "1900-01-01T00:00:00Z"}
+
+		gotStatus, gotWork := ws.PatchWork(updates)
+		wantStatus := status.New(status.OK, "")
+		tw.InitialPubDate = "1900-01-01T00:00:00Z"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
+
+	t.Run("OriginalLanguage", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
+
+		updates := &work.Work{ID: tw.ID, OriginalLanguage: "French"}
+
+		gotStatus, gotWork := ws.PatchWork(updates)
+		wantStatus := status.New(status.OK, "")
+		tw.OriginalLanguage = "French"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
+
+	t.Run("Title", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
+
+		updates := &work.Work{ID: tw.ID, Title: "Testing"}
+
+		gotStatus, gotWork := ws.PatchWork(updates)
+		wantStatus := status.New(status.OK, "")
+		tw.Title = "Testing"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
+
+	t.Run("Author", func(t *testing.T) {
+		t.Run("ExistingID", func(t *testing.T) {
+			tw := helpers.PostWork(t, ws, &works[0])
+			defer helpers.DeleteWork(t, ws, tw.ID)
+
+			ta := author.Author{ID: len(authors) - 1}
+			updates := &work.Work{ID: tw.ID, Author: ta}
+
+			gotStatus, gotWork := ws.PatchWork(updates)
+			wantStatus := status.New(status.OK, "")
+			tw.Author.ID = ta.ID
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
 		})
-	}
+
+		t.Run("NewFirstNameLastNameDateOfBirth", func(t *testing.T) {
+			tw := helpers.PostWork(t, ws, &works[0])
+			defer helpers.DeleteWork(t, ws, tw.ID)
+
+			ta := author.Author{
+				FirstName:    "A",
+				LastName:     "B",
+				Gender:       "C",
+				DateOfBirth:  "1900-01-01T00:00:00Z",
+				PlaceOfBirth: locations[0],
+			}
+			updates := &work.Work{ID: tw.ID, Author: ta}
+
+			gotStatus, gotWork := ws.PatchWork(updates)
+			wantStatus := status.New(status.OK, "")
+			tw.Author = author.Author{ID: len(authors) + 1}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
+		})
+
+		t.Run("ExistingFirstNameLastNameDateOfBirth", func(t *testing.T) {
+			tw := helpers.PostWork(t, ws, &works[0])
+			defer helpers.DeleteWork(t, ws, tw.ID)
+
+			ta := authors[0]
+			updates := &work.Work{ID: tw.ID, Author: ta}
+
+			gotStatus, gotWork := ws.PatchWork(updates)
+			wantStatus := status.New(status.OK, "")
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
+		})
+	})
+
+	t.Run("DuplicateAuthorTitle", func(t *testing.T) {
+		tw := helpers.PostWork(t, ws, &works[0])
+		defer helpers.DeleteWork(t, ws, tw.ID)
+		dup := helpers.PostWork(t, ws, &works[1])
+		defer helpers.DeleteWork(t, ws, dup.ID)
+
+		updates := &work.Work{ID: tw.ID, Title: dup.Title, Author: dup.Author}
+		gotStatus, gotWork := ws.PatchWork(updates)
+		msg := "pq: duplicate key value violates unique constraint \"work_author_id_title_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
+
+	cleanup()
 }
 
 func TestPostWork(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	as := services.AuthorService
+	ws := services.WorkService
+	authors := data.GetAuthors(&ws.AuthorService)
+	works := data.GetWorks(ws)
 
-	w, works := setup(t, db, data.GetWorks)
+	t.Run("AllFieldsValid", func(t *testing.T) {
+		tw := &works[0]
+		gotStatus, gotWork := ws.PostWork(tw)
+		defer helpers.DeleteWork(t, ws, gotWork.ID)
 
-	type Expected struct {
-		status *status.Status
-		id     int
-	}
+		wantStatus := status.New(status.Created, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tw, gotWork)
+	})
 
-	cases := []struct {
-		name     string
-		work     *work.Work
-		expected Expected
-	}{
-		{
-			name: "AllFieldsValid",
-			work: func() *work.Work {
-				work := works[0]
-				work.ID = 0
-				return &work
-			}(),
-			expected: Expected{
-				status: status.New(status.Created, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "DuplicateAuthorTitle",
-			work: func() *work.Work {
-				work := works[1]
-				work.ID = 0
-				work.AuthorID = works[0].AuthorID
-				work.Title = works[0].Title
-				return &work
-			}(),
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"work_author_id_title_key\"",
-				),
-				id: 0,
-			},
-		},
-	}
+	t.Run("Author", func(t *testing.T) {
+		t.Run("ExistingID", func(t *testing.T) {
+			tw := &works[0]
+			tw.Author = author.Author{ID: 1}
+			gotStatus, gotWork := ws.PostWork(tw)
+			defer helpers.DeleteWork(t, ws, gotWork.ID)
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, work := w.PostWork(c.work)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			_, want := w.GetWork(exp.id)
-			if !reflect.DeepEqual(want, work) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", want, work)
-			}
+			wantStatus := status.New(status.Created, "")
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
 		})
-	}
+
+		t.Run("ExistingFirstNameLastNameDateOfBirth", func(t *testing.T) {
+			tw := &works[0]
+			ta := &authors[0]
+			tw.Author = *ta
+			gotStatus, gotWork := ws.PostWork(tw)
+			defer helpers.DeleteWork(t, ws, gotWork.ID)
+
+			wantStatus := status.New(status.Created, "")
+			au := helpers.FindAuthor(t, as, ta, ta.FirstName, ta.LastName, ta.DateOfBirth)
+			tw.Author = author.Author{ID: au.ID}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
+		})
+
+		t.Run("NewFirstNameLastNameDateOfBirth", func(t *testing.T) {
+			tw := &works[0]
+			ta := &author.Author{
+				FirstName:    "A",
+				LastName:     "B",
+				DateOfBirth:  "1900-01-01T00:00:00Z",
+				PlaceOfBirth: location.Location{ID: 1},
+			}
+			tw.Author = *ta
+			gotStatus, gotWork := ws.PostWork(tw)
+			defer helpers.DeleteWork(t, ws, gotWork.ID)
+
+			wantStatus := status.New(status.Created, "")
+			au := helpers.FindAuthor(t, as, ta, "A", "B", "1900-01-01T00:00:00Z")
+			tw.Author = author.Author{ID: au.ID}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tw, gotWork)
+		})
+	})
+
+	t.Run("DuplicateTitleAuthorID", func(t *testing.T) {
+		tw := &works[0]
+		gw := helpers.PostWork(t, ws, tw)
+		defer helpers.DeleteWork(t, ws, gw.ID)
+
+		gotStatus, gotWork := ws.PostWork(tw)
+		msg := "pq: duplicate key value violates unique constraint \"work_author_id_title_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
+
+	cleanup()
 }

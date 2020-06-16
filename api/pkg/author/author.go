@@ -3,6 +3,7 @@ package author
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/andrewzulaybar/books/api/internal/postgres"
@@ -18,6 +19,7 @@ const Columns string = "first_name, last_name, gender, date_of_birth, place_of_b
 const (
 	Unknown postgres.Query = iota
 	DeleteAuthor
+	FindAuthor
 	GetAuthor
 	GetAuthors
 	PatchAuthor
@@ -30,7 +32,7 @@ type Author struct {
 	FirstName    string            `json:"firstName"`
 	LastName     string            `json:"lastName"`
 	Gender       string            `json:"gender"`
-	DateOfBirth  *string           `json:"dateOfBirth"`
+	DateOfBirth  string            `json:"dateOfBirth"`
 	PlaceOfBirth location.Location `json:"placeOfBirth"`
 }
 
@@ -49,6 +51,16 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 	switch query {
 	case DeleteAuthor:
 		return "DELETE FROM author WHERE id = $1"
+	case FindAuthor:
+		firstName := args[0].(string)
+		lastName := args[1].(string)
+		dateOfBirth := args[2].(string)
+		return fmt.Sprintf(
+			`SELECT id, %s
+                        FROM author
+                        WHERE first_name = '%s' AND last_name = '%s' AND date_of_birth = '%s'`,
+			Columns, firstName, lastName, dateOfBirth,
+		)
 	case GetAuthor:
 		return fmt.Sprintf(
 			`SELECT author.id, %s, %s
@@ -84,29 +96,16 @@ func (s *Service) Query(query postgres.Query, args ...interface{}) string {
 			}
 		}
 		if hasUpdate {
-			return strings.TrimSuffix(query, ",") + " WHERE id = $1"
+			return strings.TrimSuffix(query, ",") + fmt.Sprintf(" WHERE id = $1 RETURNING id, %s", Columns)
 		}
 		return ""
 	case PostAuthor:
-		query := "INSERT INTO author ("
-		values := []interface{}{}
-		for column, value := range args[0].(map[string]interface{}) {
-			if value != "" && value != 0 {
-				query += fmt.Sprintf("%s, ", column)
-				values = append(values, value)
-			}
-		}
-		query = strings.TrimSuffix(query, ", ") + ") VALUES ("
-		for _, value := range values {
-			switch value.(type) {
-			case string:
-				query += fmt.Sprintf("'%s', ", value)
-			case int:
-				query += fmt.Sprintf("%d, ", value)
-			}
-		}
-		query = strings.TrimSuffix(query, ", ") + ") RETURNING id"
-		return query
+		return fmt.Sprintf(
+			`INSERT INTO author (%s)
+                        VALUES ($1, $2, $3, $4, $5)
+                        RETURNING *`,
+			Columns,
+		)
 	default:
 		return ""
 	}
@@ -119,17 +118,20 @@ func (s *Service) DeleteAuthor(id int) *status.Status {
 
 	res, err := db.Exec(deleteAuthor, id)
 	if err != nil {
+		log.Printf("[DeleteAuthor] %s", err)
 		return status.New(status.InternalServerError, err.Error())
 	}
 
 	numDeleted, err := res.RowsAffected()
 	if err != nil {
+		log.Printf("[DeleteAuthor] %s", err)
 		return status.New(status.InternalServerError, err.Error())
 	}
 	if numDeleted == 0 {
-		return status.Newf(status.NotFound, "Author with id = %d does not exist", id)
+		msg := fmt.Sprintf("Author with id = %d does not exist", id)
+		log.Printf("[DeleteAuthor] %s", msg)
+		return status.New(status.OK, msg)
 	}
-
 	return status.New(status.NoContent, "")
 }
 
@@ -137,15 +139,38 @@ func (s *Service) DeleteAuthor(id int) *status.Status {
 func (s *Service) DeleteAuthors(ids []int) (*status.Status, []int) {
 	notFound := []int{}
 	for _, id := range ids {
-		if s := s.DeleteAuthor(id); s.Code() == status.NotFound {
+		if s := s.DeleteAuthor(id); s.Code() != status.NoContent {
 			notFound = append(notFound, id)
 		}
 	}
 
 	if len(notFound) > 0 {
-		return status.Newf(status.OK, "The following authors could not be found: %v", notFound), notFound
+		msg := fmt.Sprintf("The following authors could not be found: %v", notFound)
+		log.Printf("[DeleteAuthors] %s", msg)
+		return status.New(status.OK, msg), notFound
 	}
 	return status.New(status.NoContent, ""), nil
+}
+
+// FindAuthor retrieves the author from the database matching the given firstName, lastName, and dateOfBirth.
+func (s *Service) FindAuthor(firstName string, lastName string, dateOfBirth string) (*status.Status, *Author) {
+	db := s.DB
+	findAuthor := s.Query(FindAuthor, firstName, lastName, dateOfBirth)
+
+	var au Author
+	row := db.QueryRow(findAuthor)
+	if err := row.Scan(
+		&au.ID, &au.FirstName, &au.LastName, &au.Gender, &au.DateOfBirth, &au.PlaceOfBirth.ID,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			msg := fmt.Sprintf("Author ('%s', '%s', '%s') does not exist", firstName, lastName, dateOfBirth)
+			log.Printf("[FindAuthor] %s", msg)
+			return status.Newf(status.NotFound, msg), nil
+		}
+		log.Printf("[FindAuthor] %s", err)
+		return status.New(status.InternalServerError, err.Error()), nil
+	}
+	return status.New(status.OK, ""), &au
 }
 
 // GetAuthor retrieves the author from the database matching the given id.
@@ -157,8 +182,11 @@ func (s *Service) GetAuthor(id int) (*status.Status, *Author) {
 	author, err := s.getAuthor(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return status.Newf(status.NotFound, "Author with id = %d does not exist", id), nil
+			msg := fmt.Sprintf("Author with id = %d does not exist", id)
+			log.Printf("[GetAuthor] %s", msg)
+			return status.Newf(status.NotFound, msg), nil
 		}
+		log.Printf("[GetAuthor] %s", err)
 		return status.New(status.InternalServerError, err.Error()), nil
 	}
 	return status.New(status.OK, ""), author
@@ -171,6 +199,7 @@ func (s *Service) GetAuthors() (*status.Status, Authors) {
 
 	rows, err := db.Query(getAuthors)
 	if err != nil {
+		log.Printf("[GetAuthors] %s", err)
 		return status.New(status.InternalServerError, err.Error()), nil
 	}
 
@@ -178,6 +207,7 @@ func (s *Service) GetAuthors() (*status.Status, Authors) {
 	for rows.Next() {
 		author, err := s.getAuthor(rows)
 		if err != nil {
+			log.Printf("[GetAuthors] %s", err)
 			return status.New(status.InternalServerError, err.Error()), nil
 		}
 		authors = append(authors, *author)
@@ -187,64 +217,85 @@ func (s *Service) GetAuthors() (*status.Status, Authors) {
 
 // PatchAuthor updates the entry in the database matching author.id with the given attributes.
 func (s *Service) PatchAuthor(author *Author) (*status.Status, *Author) {
-	var placeOfBirth int
 	if author.PlaceOfBirth != (location.Location{}) {
-		stat, location := s.LocationService.PostLocation(&author.PlaceOfBirth)
-		if err := stat.Err(); err != nil {
-			return status.New(stat.Code(), stat.Message()), nil
+		if s := s.handleLocation(author); s.Err() != nil {
+			log.Printf("[PostAuthor] %s", s.Err())
+			return status.New(s.Code(), s.Message()), nil
 		}
-		placeOfBirth = location.ID
 	}
 
-	var dateOfBirth string = ""
-	if author.DateOfBirth != nil {
-		dateOfBirth = *author.DateOfBirth
-	}
+	db := s.DB
 	a := map[string]interface{}{
 		"first_name":     author.FirstName,
 		"last_name":      author.LastName,
 		"gender":         author.Gender,
-		"date_of_birth":  dateOfBirth,
-		"place_of_birth": placeOfBirth,
+		"date_of_birth":  author.DateOfBirth,
+		"place_of_birth": author.PlaceOfBirth.ID,
 	}
 
-	db := s.DB
 	patchAuthor := s.Query(PatchAuthor, a)
 	if patchAuthor != "" {
-		if _, err := db.Exec(patchAuthor, author.ID); err != nil {
+		var au Author
+		row := db.QueryRow(patchAuthor, author.ID)
+		if err := row.Scan(
+			&au.ID, &au.FirstName, &au.LastName, &au.Gender, &au.DateOfBirth, &au.PlaceOfBirth.ID,
+		); err != nil {
+			if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
+				log.Printf("[PostAuthor] %s", err)
+				return status.New(status.Conflict, err.Error()), nil
+			}
+			log.Printf("[PatchAuthor] %s", err)
 			return status.New(status.UnprocessableEntity, err.Error()), nil
 		}
+		return status.New(status.OK, ""), &au
 	}
-	return s.GetAuthor(author.ID)
+	return status.New(status.BadRequest, "No fields in author to update"), nil
 }
 
 // PostAuthor creates an entry in the author table with the given attributes.
 func (s *Service) PostAuthor(author *Author) (*status.Status, *Author) {
-	if author.PlaceOfBirth != (location.Location{}) {
-		s.LocationService.PostLocation(&author.PlaceOfBirth)
+	if author.ID != 0 {
+		if s, l := s.GetAuthor(author.ID); s.Code() == status.OK {
+			msg := fmt.Sprintf("Author with id = %d already exists", author.ID)
+			log.Printf("[PostAuthor] %s", msg)
+			return status.Newf(status.Conflict, msg), l
+		}
 	}
 
-	var dateOfBirth string = ""
-	if author.DateOfBirth != nil {
-		dateOfBirth = *author.DateOfBirth
+	if author.DateOfBirth == "" {
+		author.DateOfBirth = "1970-01-01T00:00:00Z"
 	}
-	a := map[string]interface{}{
-		"first_name":     author.FirstName,
-		"last_name":      author.LastName,
-		"gender":         author.Gender,
-		"date_of_birth":  dateOfBirth,
-		"place_of_birth": author.PlaceOfBirth.ID,
+
+	if author.PlaceOfBirth != (location.Location{}) {
+		if s := s.handleLocation(author); s.Err() != nil {
+			log.Printf("[PostAuthor] %s", s.Err())
+			return status.New(s.Code(), s.Message()), nil
+		}
 	}
 
 	db := s.DB
-	postAuthor := s.Query(PostAuthor, a)
-	if err := db.QueryRow(postAuthor).Scan(&(author.ID)); err != nil {
+	postAuthor := s.Query(PostAuthor)
+
+	var au Author
+	row := db.QueryRow(
+		postAuthor,
+		author.FirstName,
+		author.LastName,
+		author.Gender,
+		author.DateOfBirth,
+		author.PlaceOfBirth.ID,
+	)
+	if err := row.Scan(
+		&au.ID, &au.FirstName, &au.LastName, &au.Gender, &au.DateOfBirth, &au.PlaceOfBirth.ID,
+	); err != nil {
 		if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
+			log.Printf("[PostAuthor] %s", err)
 			return status.New(status.Conflict, err.Error()), nil
 		}
+		log.Printf("[PostAuthor] %s", err)
 		return status.New(status.UnprocessableEntity, err.Error()), nil
 	}
-	return status.New(status.Created, ""), author
+	return status.New(status.Created, ""), &au
 }
 
 func (s *Service) getAuthor(row interface {
@@ -263,4 +314,24 @@ func (s *Service) getAuthor(row interface {
 		&author.PlaceOfBirth.Region,
 	)
 	return &author, err
+}
+
+func (s *Service) handleLocation(author *Author) *status.Status {
+	pob := &author.PlaceOfBirth
+
+	stat, location := s.LocationService.PostLocation(pob)
+	if stat.Err() != nil {
+		if stat.Code() != status.Conflict {
+			return status.New(stat.Code(), stat.Message())
+		}
+
+		if stat, location = s.LocationService.GetLocation(pob.ID); stat.Err() != nil {
+			if stat, location = s.LocationService.FindLocation(pob.City, pob.Country); stat.Err() != nil {
+				return status.New(stat.Code(), stat.Message())
+			}
+		}
+	}
+
+	pob.ID = location.ID
+	return status.New(status.OK, "")
 }

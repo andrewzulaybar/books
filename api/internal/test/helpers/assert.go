@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/andrewzulaybar/books/api/pkg/author"
 	"github.com/andrewzulaybar/books/api/pkg/location"
 )
 
@@ -12,6 +13,8 @@ func AssertEqual(t *testing.T, want interface{}, got interface{}) {
 	t.Helper()
 
 	switch want.(type) {
+	case author.Author, *author.Author:
+		assertEqualAuthor(t, want, got)
 	case location.Location, *location.Location:
 		assertEqualLocation(t, want, got)
 	default:
@@ -33,6 +36,33 @@ func assertEqual(t *testing.T, want interface{}, got interface{}) {
 
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("\nWant: %v\nGot:  %v\n", want, got)
+	}
+}
+
+func assertEqualAuthor(t *testing.T, want, got interface{}) {
+	t.Helper()
+
+	switch wantAuthor := want.(type) {
+	case author.Author:
+		gotAuthor, ok := got.(author.Author)
+		if !ok {
+			t.Errorf("\nWant: %v\nGot:  %v\n", wantAuthor, got)
+		}
+		wantAuthor.ID = gotAuthor.ID
+		wantAuthor.PlaceOfBirth = location.Location{ID: wantAuthor.PlaceOfBirth.ID}
+		gotAuthor.PlaceOfBirth = location.Location{ID: gotAuthor.PlaceOfBirth.ID}
+		assertEqual(t, wantAuthor, gotAuthor)
+	case *author.Author:
+		gotAuthor, ok := got.(*author.Author)
+		if !ok {
+			t.Errorf("\nWant: %v\nGot:  %v\n", wantAuthor, got)
+		}
+		wa := *wantAuthor
+		ga := *gotAuthor
+		wa.ID = ga.ID
+		wa.PlaceOfBirth = location.Location{ID: wa.PlaceOfBirth.ID}
+		ga.PlaceOfBirth = location.Location{ID: ga.PlaceOfBirth.ID}
+		assertEqual(t, &wa, &ga)
 	}
 }
 

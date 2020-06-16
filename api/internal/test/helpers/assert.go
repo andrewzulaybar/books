@@ -6,6 +6,7 @@ import (
 
 	"github.com/andrewzulaybar/books/api/pkg/author"
 	"github.com/andrewzulaybar/books/api/pkg/location"
+	"github.com/andrewzulaybar/books/api/pkg/publication"
 	"github.com/andrewzulaybar/books/api/pkg/work"
 )
 
@@ -18,6 +19,8 @@ func AssertEqual(t *testing.T, want interface{}, got interface{}) {
 		assertEqualAuthor(t, want, got)
 	case location.Location, *location.Location:
 		assertEqualLocation(t, want, got)
+	case publication.Publication, *publication.Publication:
+		assertEqualPublication(t, want, got)
 	case work.Work, *work.Work:
 		assertEqualWork(t, want, got)
 	default:
@@ -89,6 +92,33 @@ func assertEqualLocation(t *testing.T, want, got interface{}) {
 		gl := *gotLocation
 		wl.ID = gl.ID
 		assertEqual(t, &wl, &gl)
+	}
+}
+
+func assertEqualPublication(t *testing.T, want, got interface{}) {
+	t.Helper()
+
+	switch wantPublication := want.(type) {
+	case publication.Publication:
+		gotPublication, ok := got.(publication.Publication)
+		if !ok {
+			t.Errorf("\nWant: %v\nGot:  %v\n", wantPublication, got)
+		}
+		wantPublication.ID = gotPublication.ID
+		wantPublication.Work = work.Work{ID: wantPublication.Work.ID}
+		gotPublication.Work = work.Work{ID: gotPublication.Work.ID}
+		assertEqual(t, wantPublication, gotPublication)
+	case *publication.Publication:
+		gotPublication, ok := got.(*publication.Publication)
+		if !ok {
+			t.Errorf("\nWant: %v\nGot:  %v\n", wantPublication, got)
+		}
+		ww := *wantPublication
+		gw := *gotPublication
+		ww.ID = gw.ID
+		ww.Work = work.Work{ID: ww.Work.ID}
+		gw.Work = work.Work{ID: gw.Work.ID}
+		assertEqual(t, &ww, &gw)
 	}
 }
 

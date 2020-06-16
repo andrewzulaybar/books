@@ -17,7 +17,7 @@ func DeleteWork(t *testing.T, ws *work.Service, id int) {
 }
 
 // FindWork is a test helper that calls (WorkService).FindWork with the given title and authorID.
-func FindWork(t *testing.T, ws *work.Service, wantWork work.Work, title string, authorID int) *work.Work {
+func FindWork(t *testing.T, ws *work.Service, wantWork *work.Work, title string, authorID int) *work.Work {
 	t.Helper()
 
 	gotStatus, gotWork := ws.FindWork(title, authorID)

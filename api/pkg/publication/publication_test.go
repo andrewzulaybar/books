@@ -1,11 +1,9 @@
 package publication_test
 
 import (
-	"reflect"
 	"testing"
 
-	"github.com/andrewzulaybar/books/api/config"
-	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/internal/test/helpers"
 	"github.com/andrewzulaybar/books/api/pkg/author"
 	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/publication"
@@ -14,472 +12,448 @@ import (
 	"github.com/andrewzulaybar/books/api/test/data"
 )
 
-type TestData struct {
-	GetWorks        func(*work.Service) work.Works
-	GetPublications func(*publication.Service) publication.Publications
-}
-
-func getDB(t *testing.T) (*postgres.DB, func()) {
-	t.Helper()
-
-	conf, err := config.Load("../../config/test.env")
-	if err != nil {
-		panic(err)
-	}
-
-	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
-}
-
-func setup(t *testing.T, db *postgres.DB, td *TestData) (*publication.Service, publication.Publications) {
-	t.Helper()
-
-	l := &location.Service{DB: *db}
-	a := &author.Service{
-		DB:              *db,
-		LocationService: *l,
-	}
-	data.LoadLocations(l)
-	data.LoadAuthors(a)
-
-	w := &work.Service{DB: *db}
-	p := &publication.Service{
-		DB:          *db,
-		WorkService: *w,
-	}
-	works := td.GetWorks(w)
-	publications := td.GetPublications(p)
-
-	for i := range publications {
-		for j := range works {
-			if publications[i].Work.ID == works[j].ID {
-				publications[i].Work = works[j]
-			}
-		}
-	}
-
-	return p, publications
-}
-
 func TestDeletePublication(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ps := services.PublicationService
+	publications := data.GetPublications(ps)
+	helpers.PostPublications(t, ps, publications)
 
-	td := &TestData{data.LoadWorks, data.LoadPublications}
-	p, _ := setup(t, db, td)
+	t.Run("ValidID", func(t *testing.T) {
+		got := ps.DeletePublication(1)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	type Expected struct {
-		status *status.Status
-	}
+	t.Run("AlreadyDeletedID", func(t *testing.T) {
+		got := ps.DeletePublication(2)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-			},
-		},
-		{
-			name: "AlreadyDeletedId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.NotFound, "Publication with id = 1 does not exist"),
-			},
-		},
-		{
-			name: "NegativeId",
-			id:   -1,
-			expected: Expected{
-				status: status.New(status.NotFound, "Publication with id = -1 does not exist"),
-			},
-		},
-	}
+		got = ps.DeletePublication(2)
+		want = status.New(status.OK, "Publication with id = 2 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s := p.DeletePublication(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-		})
-	}
+	t.Run("NonExistentID", func(t *testing.T) {
+		got := ps.DeletePublication(-1)
+		want := status.New(status.OK, "Publication with id = -1 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
+
+	cleanup()
 }
 
 func TestDeletePublications(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ps := services.PublicationService
+	publications := data.GetPublications(ps)
+	helpers.PostPublications(t, ps, publications)
 
-	td := &TestData{data.LoadWorks, data.LoadPublications}
-	p, _ := setup(t, db, td)
+	t.Run("OneID", func(t *testing.T) {
+		gotStatus, gotIDs := ps.DeletePublications([]int{1})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
+	})
 
-	type Expected struct {
-		status *status.Status
-		ids    []int
-	}
+	t.Run("MultipleIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ps.DeletePublications([]int{2, 3})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
+	})
 
-	cases := []struct {
-		name     string
-		ids      []int
-		expected Expected
-	}{
-		{
-			name: "OneId",
-			ids:  []int{1},
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-				ids:    nil,
-			},
-		},
-		{
-			name: "MultipleIds",
-			ids:  []int{2, 3, 4},
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-				ids:    nil,
-			},
-		},
-		{
-			name: "AlreadyDeletedIds",
-			ids:  []int{1, 2, 3},
-			expected: Expected{
-				status: status.New(
-					status.OK,
-					"The following publications could not be found: [1 2 3]",
-				),
-				ids: []int{1, 2, 3},
-			},
-		},
-		{
-			name: "IncludesIdNotFound",
-			ids:  []int{5, 6, -1},
-			expected: Expected{
-				status: status.New(
-					status.OK,
-					"The following publications could not be found: [-1]",
-				),
-				ids: []int{-1},
-			},
-		},
-		{
-			name: "AllIdsNotFound",
-			ids:  []int{-1, -2, -3},
-			expected: Expected{
-				status: status.New(
-					status.OK,
-					"The following publications could not be found: [-1 -2 -3]",
-				),
-				ids: []int{-1, -2, -3},
-			},
-		},
-	}
+	t.Run("AlreadyDeletedIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ps.DeletePublications([]int{4, 5})
+		wantStatus := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotIDs)
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, ids := p.DeletePublications(c.ids)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.ids, ids) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.ids, ids)
-			}
-		})
-	}
+		gotStatus, gotIDs = ps.DeletePublications([]int{4, 5})
+		wantStatus = status.New(status.OK, "The following publications could not be found: [4 5]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{4, 5}, gotIDs)
+	})
+
+	t.Run("IncludesNonExistentID", func(t *testing.T) {
+		gotStatus, gotIDs := ps.DeletePublications([]int{6, -1})
+		wantStatus := status.New(status.OK, "The following publications could not be found: [-1]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{-1}, gotIDs)
+	})
+
+	t.Run("AllNonExistentIDs", func(t *testing.T) {
+		gotStatus, gotIDs := ps.DeletePublications([]int{1, 2, 3})
+		wantStatus := status.New(status.OK, "The following publications could not be found: [1 2 3]")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, []int{1, 2, 3}, gotIDs)
+	})
+
+	cleanup()
 }
 
 func TestGetPublication(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ps := services.PublicationService
+	publications := data.GetPublications(ps)
+	helpers.PostPublications(t, ps, publications)
 
-	td := &TestData{data.LoadWorks, data.LoadPublications}
-	p, pubs := setup(t, db, td)
+	t.Run("ValidID", func(t *testing.T) {
+		gotStatus, gotWork := ps.GetPublication(1)
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, &publications[0], gotWork)
+	})
 
-	type Expected struct {
-		status *status.Status
-		pub    *publication.Publication
-	}
+	t.Run("NonExistentID", func(t *testing.T) {
+		gotStatus, gotWork := ps.GetPublication(-1)
+		wantStatus := status.New(status.NotFound, "Publication with id = -1 does not exist")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				pub:    &pubs[0],
-			},
-		},
-		{
-			name: "InvalidId",
-			id:   -1,
-			expected: Expected{
-				status: status.New(status.NotFound, "Publication with id = -1 does not exist"),
-				pub:    nil,
-			},
-		},
-	}
-
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, pub := p.GetPublication(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.pub, pub) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, pub)
-			}
-		})
-	}
+	cleanup()
 }
 
 func TestGetPublications(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ps := services.PublicationService
+	publications := data.GetPublications(ps)
+	helpers.PostPublications(t, ps, publications)
 
-	td := &TestData{data.LoadWorks, data.LoadPublications}
-	p, pubs := setup(t, db, td)
-
-	type Expected struct {
-		status *status.Status
-		pubs   publication.Publications
-	}
-
-	c := struct {
-		name     string
-		expected Expected
-	}{
-		"AllPublications",
-		Expected{
-			status: status.New(status.OK, ""),
-			pubs:   pubs,
-		},
-	}
-
-	exp := c.expected
-	t.Run(c.name, func(t *testing.T) {
-		s, pubs := p.GetPublications()
-		if !reflect.DeepEqual(exp.status, s) {
-			t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-		}
-		if !reflect.DeepEqual(exp.pubs, pubs) {
-			t.Errorf("\nExpected: %v\nActual: %v\n", exp.pubs, pubs)
+	t.Run("AllWorks", func(t *testing.T) {
+		gotStatus, gotPublications := ps.GetPublications()
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		for i := range publications {
+			helpers.AssertEqual(t, publications[i], gotPublications[i])
 		}
 	})
+
+	cleanup()
 }
 
 func TestPatchPublication(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ps := services.PublicationService
+	works := data.GetWorks(&ps.WorkService)
+	publications := data.GetPublications(ps)
 
-	td := &TestData{data.LoadWorks, data.LoadPublications}
-	p, _ := setup(t, db, td)
+	t.Run("NoFieldsToUpdate", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
 
-	type Expected struct {
-		status *status.Status
-		id     int
-	}
+		updates := &publication.Publication{ID: tp.ID}
 
-	cases := []struct {
-		name     string
-		pub      *publication.Publication
-		expected Expected
-	}{
-		{
-			name: "PatchEditionPubDate",
-			pub: &publication.Publication{
-				ID:             1,
-				EditionPubDate: "1900-01-01T00:00:00Z",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchFormat",
-			pub: &publication.Publication{
-				ID:     1,
-				Format: "Paperback",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchImageURL",
-			pub: &publication.Publication{
-				ID:       1,
-				ImageURL: "https://example.com",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchISBN",
-			pub: &publication.Publication{
-				ID:   1,
-				ISBN: "0123456789",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchISBN13",
-			pub: &publication.Publication{
-				ID:     1,
-				ISBN13: "0123456789012",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchLanguage",
-			pub: &publication.Publication{
-				ID:       1,
-				Language: "French",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchNumPages",
-			pub: &publication.Publication{
-				ID:       1,
-				NumPages: 100,
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-		{
-			name: "PatchPublisher",
-			pub: &publication.Publication{
-				ID:        1,
-				Publisher: "Penguin",
-			},
-			expected: Expected{
-				status: status.New(status.OK, ""),
-				id:     1,
-			},
-		},
-	}
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "No fields in publication to update")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotWork)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, pub := p.PatchPublication(c.pub)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			_, want := p.GetPublication(exp.id)
-			if !reflect.DeepEqual(want, pub) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", want, pub)
-			}
+	t.Run("EditionPubDate", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, EditionPubDate: "1900-01-01T00:00:00Z"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.EditionPubDate = "1900-01-01T00:00:00Z"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("InitialPubDate", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, Format: "Paperback"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.Format = "Paperback"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("ImageUrl", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ImageURL: "https://google.com"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.ImageURL = "https://google.com"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("ISBN", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ISBN: "0123456789"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.ISBN = "0123456789"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("ISBN13", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ISBN13: "0123456789123"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.ISBN13 = "0123456789123"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("Language", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, Language: "French"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.Language = "French"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("NumPages", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, NumPages: 100}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.NumPages = 100
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("Publisher", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		updates := &publication.Publication{ID: tp.ID, Publisher: "Penguin"}
+
+		gotStatus, gotWork := ps.PatchPublication(updates)
+		wantStatus := status.New(status.OK, "")
+		tp.Publisher = "Penguin"
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotWork)
+	})
+
+	t.Run("Work", func(t *testing.T) {
+		t.Run("ExistingID", func(t *testing.T) {
+			tp := helpers.PostPublication(t, ps, &publications[0])
+			defer helpers.DeletePublication(t, ps, tp.ID)
+
+			tw := work.Work{ID: len(works) - 1}
+			updates := &publication.Publication{ID: tp.ID, Work: tw}
+
+			gotStatus, gotPublication := ps.PatchPublication(updates)
+			wantStatus := status.New(status.OK, "")
+			tp.Work.ID = tw.ID
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
 		})
-	}
+
+		t.Run("NewTitleAuthorID", func(t *testing.T) {
+			tp := helpers.PostPublication(t, ps, &publications[0])
+			defer helpers.DeletePublication(t, ps, tp.ID)
+
+			ta := author.Author{ID: 1}
+			tw := work.Work{Title: "A", InitialPubDate: "1900-01-01T00:00:00Z", Author: ta}
+			updates := &publication.Publication{ID: tp.ID, Work: tw}
+
+			gotStatus, gotPublication := ps.PatchPublication(updates)
+			wantStatus := status.New(status.OK, "")
+			tp.Work = work.Work{ID: len(works) + 1}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
+		})
+
+		t.Run("ExistingTitleAuthorID", func(t *testing.T) {
+			tp := helpers.PostPublication(t, ps, &publications[0])
+			defer helpers.DeletePublication(t, ps, tp.ID)
+
+			tw := works[0]
+			updates := &publication.Publication{ID: tp.ID, Work: tw}
+
+			gotStatus, gotPublication := ps.PatchPublication(updates)
+			wantStatus := status.New(status.OK, "")
+			tp.Work = work.Work{ID: 1}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
+		})
+	})
+
+	t.Run("DuplicateImageURL", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+		dup := helpers.PostPublication(t, ps, &publications[1])
+		defer helpers.DeletePublication(t, ps, dup.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ImageURL: dup.ImageURL}
+		gotStatus, gotPublication := ps.PatchPublication(updates)
+		msg := "pq: duplicate key value violates unique constraint \"publication_image_url_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	t.Run("DuplicateISBN", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+		dup := helpers.PostPublication(t, ps, &publications[1])
+		defer helpers.DeletePublication(t, ps, dup.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ISBN: dup.ISBN}
+		gotStatus, gotPublication := ps.PatchPublication(updates)
+		msg := "pq: duplicate key value violates unique constraint \"publication_isbn_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	t.Run("DuplicateISBN13", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+		dup := helpers.PostPublication(t, ps, &publications[1])
+		defer helpers.DeletePublication(t, ps, dup.ID)
+
+		updates := &publication.Publication{ID: tp.ID, ISBN13: dup.ISBN13}
+		gotStatus, gotPublication := ps.PatchPublication(updates)
+		msg := "pq: duplicate key value violates unique constraint \"publication_isbn13_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	cleanup()
 }
 
 func TestPostPublication(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ws := services.WorkService
+	ps := services.PublicationService
+	works := data.GetWorks(&ps.WorkService)
+	publications := data.GetPublications(ps)
 
-	td := &TestData{data.LoadWorks, data.GetPublications}
-	p, pubs := setup(t, db, td)
+	t.Run("AllFieldsValid", func(t *testing.T) {
+		tp := &publications[0]
+		gotStatus, gotPublication := ps.PostPublication(tp)
+		defer helpers.DeletePublication(t, ps, gotPublication.ID)
 
-	type Expected struct {
-		status *status.Status
-		pub    *publication.Publication
-	}
+		wantStatus := status.New(status.Created, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tp, gotPublication)
+	})
 
-	cases := []struct {
-		name     string
-		pub      *publication.Publication
-		expected Expected
-	}{
-		{
-			name: "AllFieldsValid",
-			pub:  &pubs[0],
-			expected: Expected{
-				status: status.New(status.Created, ""),
-				pub:    &pubs[0],
-			},
-		},
-		{
-			name: "DuplicateImageURL",
-			pub: func() *publication.Publication {
-				pub := pubs[1]
-				pub.ImageURL = pubs[0].ImageURL
-				return &pub
-			}(),
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"publication_image_url_key\"",
-				),
-				pub: nil,
-			},
-		},
-		{
-			name: "DuplicateISBN",
-			pub: func() *publication.Publication {
-				pub := pubs[1]
-				pub.ISBN = pubs[0].ISBN
-				return &pub
-			}(),
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"publication_isbn_key\"",
-				),
-				pub: nil,
-			},
-		},
-		{
-			name: "DuplicateISBN13",
-			pub: func() *publication.Publication {
-				pub := pubs[1]
-				pub.ISBN13 = pubs[0].ISBN13
-				return &pub
-			}(),
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"publication_isbn13_key\"",
-				),
-				pub: nil,
-			},
-		},
-	}
+	t.Run("Work", func(t *testing.T) {
+		t.Run("ExistingID", func(t *testing.T) {
+			tp := &publications[0]
+			tp.Work = work.Work{ID: 1}
+			gotStatus, gotPublication := ps.PostPublication(tp)
+			defer helpers.DeletePublication(t, ps, gotPublication.ID)
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, pub := p.PostPublication(c.pub)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.pub, pub) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.pub, pub)
-			}
+			wantStatus := status.New(status.Created, "")
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
 		})
-	}
+
+		t.Run("ExistingTitleAuthorID", func(t *testing.T) {
+			tp := &publications[0]
+			tp.Work = works[0]
+			gotStatus, gotPublication := ps.PostPublication(tp)
+			defer helpers.DeletePublication(t, ps, gotPublication.ID)
+
+			wantStatus := status.New(status.Created, "")
+			wk := helpers.FindWork(t, ws, &tp.Work, tp.Work.Title, tp.Work.Author.ID)
+			tp.Work = work.Work{ID: wk.ID}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
+		})
+
+		t.Run("NewTitleAuthorID", func(t *testing.T) {
+			tp := &publications[0]
+			tp.Work = work.Work{
+				Description:      "A",
+				InitialPubDate:   "1900-01-01T00:00:00Z",
+				OriginalLanguage: "B",
+				Title:            "C",
+				Author: author.Author{
+					FirstName:    "D",
+					LastName:     "E",
+					Gender:       "F",
+					DateOfBirth:  "1900-01-01T00:00:00Z",
+					PlaceOfBirth: location.Location{City: "G", Country: "H", Region: "I"},
+				},
+			}
+			gotStatus, gotPublication := ps.PostPublication(tp)
+			defer helpers.DeletePublication(t, ps, gotPublication.ID)
+
+			wantStatus := status.New(status.Created, "")
+			wk := helpers.FindWork(t, ws, &tp.Work, tp.Work.Title, tp.Work.Author.ID)
+			tp.Work = work.Work{ID: wk.ID}
+			helpers.AssertEqual(t, wantStatus, gotStatus)
+			helpers.AssertEqual(t, tp, gotPublication)
+		})
+	})
+
+	t.Run("DuplicateImageURL", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		dup := publications[1]
+		dup.ImageURL = tp.ImageURL
+		gotStatus, gotPublication := ps.PostPublication(&dup)
+
+		msg := "pq: duplicate key value violates unique constraint \"publication_image_url_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	t.Run("DuplicateISBN", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		dup := publications[1]
+		dup.ISBN = tp.ISBN
+		gotStatus, gotPublication := ps.PostPublication(&dup)
+
+		msg := "pq: duplicate key value violates unique constraint \"publication_isbn_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	t.Run("DuplicateISBN13", func(t *testing.T) {
+		tp := helpers.PostPublication(t, ps, &publications[0])
+		defer helpers.DeletePublication(t, ps, tp.ID)
+
+		dup := publications[1]
+		dup.ISBN13 = tp.ISBN13
+		gotStatus, gotPublication := ps.PostPublication(&dup)
+
+		msg := "pq: duplicate key value violates unique constraint \"publication_isbn13_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotPublication)
+	})
+
+	cleanup()
 }

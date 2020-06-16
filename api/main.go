@@ -27,27 +27,17 @@ func main() {
 	defer dc()
 
 	l := &location.Service{DB: *db}
-	a := &author.Service{
-		DB:              *db,
-		LocationService: *l,
-	}
-	w := &work.Service{DB: *db}
-	p := &publication.Service{
-		DB:          *db,
-		WorkService: *w,
-	}
-
-	data.LoadLocations(l)
-	data.LoadAuthors(a)
-	data.LoadWorks(w)
+	a := &author.Service{DB: *db, LocationService: *l}
+	w := &work.Service{DB: *db, AuthorService: *a}
+	p := &publication.Service{DB: *db, WorkService: *w}
 	data.LoadPublications(p)
 
 	r := mux.NewRouter()
 	API := r.PathPrefix("/api").Subrouter()
 
-	API.HandleFunc("/publications", handlers.Publications(p)).
+	API.HandleFunc("/publication", handlers.Publications(p)).
 		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	API.HandleFunc("/publications/{id:[0-9]+}", handlers.Publication(p)).
+	API.HandleFunc("/publication/{id:[0-9]+}", handlers.Publication(p)).
 		Methods(http.MethodGet, http.MethodPatch, http.MethodDelete)
 	API.HandleFunc("/work", handlers.Works(w)).
 		Methods(http.MethodGet, http.MethodPost, http.MethodDelete)

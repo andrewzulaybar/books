@@ -6,11 +6,11 @@ import (
 
 // GetLocations reads the test data in `location.json` and returns it.
 func GetLocations() location.Locations {
-	var buf struct {
+	var buffer struct {
 		Locations location.Locations `json:"locations"`
 	}
-	loadBuffer(&buf, "location.json")
-	return buf.Locations
+	loadBuffer(&buffer, "location.json")
+	return buffer.Locations
 }
 
 // LoadLocations reads the test data in `location.json` and loads it into the database.

@@ -1,179 +1,130 @@
 package location_test
 
 import (
-	"reflect"
 	"testing"
 
-	"github.com/andrewzulaybar/books/api/config"
-	"github.com/andrewzulaybar/books/api/internal/postgres"
+	"github.com/andrewzulaybar/books/api/pkg/internal/test/helpers"
 	"github.com/andrewzulaybar/books/api/pkg/location"
 	"github.com/andrewzulaybar/books/api/pkg/status"
 	"github.com/andrewzulaybar/books/api/test/data"
 )
 
-func getDB(t *testing.T) (*postgres.DB, func()) {
-	t.Helper()
-
-	conf, err := config.Load("../../config/test.env")
-	if err != nil {
-		panic(err)
-	}
-
-	return postgres.Setup(conf.ConnectionString, "../../internal/sql/")
-}
-
 func TestDeleteLocation(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+	services, cleanup := helpers.Setup(t)
+	ls := services.LocationService
+	locations := data.GetLocations()
+	helpers.PostLocations(t, ls, locations)
 
-	l := &location.Service{DB: *db}
-	data.LoadLocations(l)
+	t.Run("ExistingID", func(t *testing.T) {
+		got := ls.DeleteLocation(1)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	type Expected struct {
-		status *status.Status
-	}
+	t.Run("AlreadyDeletedID", func(t *testing.T) {
+		got := ls.DeleteLocation(2)
+		want := status.New(status.NoContent, "")
+		helpers.AssertEqual(t, want, got)
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.NoContent, ""),
-			},
-		},
-		{
-			name: "AlreadyDeletedId",
-			id:   1,
-			expected: Expected{
-				status: status.New(status.OK, "Location with id = 1 does not exist"),
-			},
-		},
-		{
-			name: "InvalidId",
-			id:   -1,
-			expected: Expected{
-				status: status.New(status.OK, "Location with id = -1 does not exist"),
-			},
-		},
-	}
+		got = ls.DeleteLocation(2)
+		want = status.New(status.OK, "Location with id = 2 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s := l.DeleteLocation(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-		})
-	}
+	t.Run("NonExistentID", func(t *testing.T) {
+		got := ls.DeleteLocation(-1)
+		want := status.New(status.OK, "Location with id = -1 does not exist")
+		helpers.AssertEqual(t, want, got)
+	})
+
+	cleanup()
 }
 
-func TestGetWork(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
+func TestFindLocation(t *testing.T) {
+	services, cleanup := helpers.Setup(t)
+	ls := services.LocationService
+	locations := data.GetLocations()
+	helpers.PostLocations(t, ls, locations)
 
-	l := &location.Service{DB: *db}
-	locations := data.LoadLocations(l)
+	t.Run("ExistingLocation", func(t *testing.T) {
+		tl := &locations[0]
+		gotStatus, gotLocation := ls.FindLocation(tl.City, tl.Country)
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tl, gotLocation)
+	})
 
-	type Expected struct {
-		status   *status.Status
-		location *location.Location
-	}
+	t.Run("NonExistentLocation", func(t *testing.T) {
+		tl := &location.Location{City: "A", Country: "B", Region: "C"}
+		gotStatus, gotLocation := ls.FindLocation(tl.City, tl.Country)
+		wantStatus := status.New(status.NotFound, "Location ('A', 'B') does not exist")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotLocation)
+	})
 
-	cases := []struct {
-		name     string
-		id       int
-		expected Expected
-	}{
-		{
-			name: "ValidId",
-			id:   1,
-			expected: Expected{
-				status:   status.New(status.OK, ""),
-				location: &locations[0],
-			},
-		},
-		{
-			name: "InvalidId",
-			id:   -1,
-			expected: Expected{
-				status:   status.New(status.NotFound, "Location with id = -1 does not exist"),
-				location: nil,
-			},
-		},
-	}
+	cleanup()
+}
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, loc := l.GetLocation(c.id)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.location, loc) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.location, loc)
-			}
-		})
-	}
+func TestGetLocation(t *testing.T) {
+	services, cleanup := helpers.Setup(t)
+	ls := services.LocationService
+	locations := data.GetLocations()
+	helpers.PostLocations(t, ls, locations)
+
+	t.Run("ExistingID", func(t *testing.T) {
+		gotStatus, gotLocation := ls.GetLocation(1)
+		wantStatus := status.New(status.OK, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, &locations[0], gotLocation)
+	})
+
+	t.Run("NonExistentID", func(t *testing.T) {
+		gotStatus, gotLocation := ls.GetLocation(-1)
+		wantStatus := status.New(status.NotFound, "Location with id = -1 does not exist")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertNil(t, gotLocation)
+	})
+
+	cleanup()
 }
 
 func TestPostLocation(t *testing.T) {
-	db, dc := getDB(t)
-	defer dc()
-
-	l := &location.Service{DB: *db}
+	services, cleanup := helpers.Setup(t)
+	ls := services.LocationService
 	locations := data.GetLocations()
 
-	type Expected struct {
-		status *status.Status
-		loc    *location.Location
-	}
+	t.Run("AllFieldsValid", func(t *testing.T) {
+		tl := &locations[0]
+		gotStatus, gotLocation := ls.PostLocation(tl)
+		defer helpers.DeleteLocation(t, ls, gotLocation.ID)
 
-	cases := []struct {
-		name     string
-		loc      *location.Location
-		expected Expected
-	}{
-		{
-			name: "AllFieldsValid",
-			loc:  &locations[0],
-			expected: Expected{
-				status: status.New(status.Created, ""),
-				loc:    &locations[0],
-			},
-		},
-		{
-			name: "DuplicateCityCountry",
-			loc: func() *location.Location {
-				loc := locations[1]
-				loc.City = locations[0].City
-				loc.Country = locations[0].Country
-				return &loc
-			}(),
-			expected: Expected{
-				status: status.New(
-					status.Conflict,
-					"pq: duplicate key value violates unique constraint \"location_city_country_key\"",
-				),
-				loc: nil,
-			},
-		},
-	}
+		wantStatus := status.New(status.Created, "")
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tl, gotLocation)
+	})
 
-	for _, c := range cases {
-		exp := c.expected
-		t.Run(c.name, func(t *testing.T) {
-			s, loc := l.PostLocation(c.loc)
-			if !reflect.DeepEqual(exp.status, s) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.status, s)
-			}
-			if !reflect.DeepEqual(exp.loc, loc) {
-				t.Errorf("\nExpected: %v\nActual: %v\n", exp.loc, loc)
-			}
-		})
-	}
+	t.Run("ExistingID", func(t *testing.T) {
+		tl := &locations[0]
+		gl := helpers.PostLocation(t, ls, tl)
+		defer helpers.DeleteLocation(t, ls, gl.ID)
+
+		gotStatus, gotLocation := ls.PostLocation(gl)
+		wantStatus := status.Newf(status.Conflict, "Location with id = %d already exists", gl.ID)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tl, gotLocation)
+	})
+
+	t.Run("DuplicateCityCountry", func(t *testing.T) {
+		tl := &locations[0]
+		gl := helpers.PostLocation(t, ls, tl)
+		defer helpers.DeleteLocation(t, ls, gl.ID)
+
+		gotStatus, gotLocation := ls.PostLocation(tl)
+		msg := "pq: duplicate key value violates unique constraint \"location_city_country_key\""
+		wantStatus := status.New(status.Conflict, msg)
+		helpers.AssertEqual(t, wantStatus, gotStatus)
+		helpers.AssertEqual(t, tl, gotLocation)
+	})
+
+	cleanup()
 }

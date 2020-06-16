@@ -5,15 +5,15 @@
     [options]="trendingOptions"
     infoRoute="explore/trending"
   >
-    <ng-container *ngFor="let publication of publications">
-      <app-card-small [content]="publication"></app-card-small>
+    <ng-container *ngFor="let p of publications">
+      <app-card-small [imageUrl]="p.imageUrl" [title]="p.title" [subtitle]="p.authorName"></app-card-small>
     </ng-container>
   </app-section-container>
 
   <!-- New -->
   <app-section-container title="New" infoRoute="explore/new">
-    <ng-container *ngFor="let publication of publications">
-      <app-card-small [content]="publication"></app-card-small>
+    <ng-container *ngFor="let p of publications">
+      <app-card-small [imageUrl]="p.imageUrl" [title]="p.title" [subtitle]="p.authorName"></app-card-small>
     </ng-container>
   </app-section-container>
 </div>

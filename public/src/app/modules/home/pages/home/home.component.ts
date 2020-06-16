@@ -1,31 +1,39 @@
 import { Component, OnInit } from '@angular/core';
-import { environment } from '@env/environment';
+
+import { IPublication } from '@models/publication.model';
+import { PublicationService } from '@service/publication.service';
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css'],
+  providers: [PublicationService],
 })
 export class HomeComponent implements OnInit {
   public publications: object[];
   public trendingOptions: string[] = ['International', 'Canada', 'My Network'];
 
-  constructor() {}
+  constructor(private publicationService: PublicationService) {}
 
   async ngOnInit() {
-    try {
-      this.publications = await this.fetchPublications();
-    } catch (error) {
-      this.publications = [];
-    }
+    this.getPublications();
   }
 
-  async fetchPublications(): Promise<object[]> {
-    try {
-      const response = await fetch(`${environment.apiUrl}/publications`);
-      return response.json();
-    } catch (error) {
-      throw error;
-    }
+  private getPublications() {
+    this.publicationService
+      .getPublications()
+      .subscribe((publications: IPublication[]) => {
+        this.publications = publications.map((publication: IPublication) => {
+          const {
+            imageUrl,
+            work: {
+              author: { firstName, lastName },
+              title,
+            },
+          } = publication;
+          const authorName = `${firstName} ${lastName}`;
+          return { authorName, imageUrl, title };
+        });
+      });
   }
 }
